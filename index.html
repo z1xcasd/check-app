@@ -307,6 +307,7 @@ h1{margin:0;font-weight:700}
       h += '<div class="empty" style="text-align:left;padding:18px 0">ยังไม่มีประวัติก่อนหน้า</div>';
     }
     h += '</div>';
+    h += '<div class="wfoot"><button type="button" class="btn primary" data-act="changeitem">เปลี่ยนรายการนี้</button></div>';
     return h;
   }
 
@@ -336,10 +337,11 @@ h1{margin:0;font-weight:700}
     else window.scrollTo(0, 0);
     if (state.screen === 'item') loadPhoto();
     if (state.screen === 'wizard') afterWizard();
+    syncFooter();
   }
 
   /* ---------- บันทึกการเปลี่ยนอะไหล่ (ถามทีละข้อ) ---------- */
-  var STEPS = ['item', 'mileage', 'brand', 'note'];
+  function stepsOf() { return entry && entry.fixedItem ? ['mileage', 'brand', 'note'] : ['item', 'mileage', 'brand', 'note']; }
   var entry = null, oq = '', saving = false, lastSaved = null;
   var pendingDone = false, pendingWizard = false;
   var PLUS = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
@@ -375,10 +377,19 @@ h1{margin:0;font-weight:700}
     return isoOf(now);
   }
 
+  // iOS ไม่ย่อหน้าเว็บตอนแป้นพิมพ์ขึ้น แถบปุ่มล่างจึงถูกแป้นบัง: วัดส่วนที่ถูกบังแล้วยกแถบขึ้นเท่ากัน
+  function syncFooter() {
+    var f = document.querySelector('.wfoot');
+    if (!f) return;
+    var vv = window.visualViewport;
+    var kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+    f.style.bottom = kb + 'px';
+  }
+
   function wtop(step) {
-    var idx = STEPS.indexOf(step), bars = '';
-    STEPS.forEach(function (s, i) { bars += '<span' + ((step === 'review' || i <= idx) ? ' class="on"' : '') + '></span>'; });
-    var label = step === 'review' ? 'ตรวจสอบ' : 'ข้อ ' + (idx + 1) + ' จาก 4';
+    var steps = stepsOf(), idx = steps.indexOf(step), bars = '';
+    steps.forEach(function (s, i) { bars += '<span' + ((step === 'review' || i <= idx) ? ' class="on"' : '') + '></span>'; });
+    var label = step === 'review' ? 'ตรวจสอบ' : 'ข้อ ' + (idx + 1) + ' จาก ' + steps.length;
     return '<div class="wtop"><button type="button" class="round" data-act="back" aria-label="ย้อนกลับ">' + BACK + '</button>' +
       '<div class="bars" aria-hidden="true">' + bars + '</div><span class="plabel">' + label + '</span></div>';
   }
@@ -402,7 +413,7 @@ h1{margin:0;font-weight:700}
     return wtop('item') + wtitle('เปลี่ยนอะไร', 'แตะรายการที่เปลี่ยน') +
       '<div class="wbody"><div class="list">' + rows + '</div>' +
       '<div style="display:flex;flex-direction:column;gap:8px;padding-top:12px"><label class="lbl" for="oi">รายการอื่น (พิมพ์ชื่อ)</label>' +
-      '<input id="oi" class="midin" type="text" autocomplete="off" placeholder="เช่น ปีกนก" value="' + esc(oq) + '">' +
+      '<input id="oi" class="midin" type="text" enterkeyhint="next" autocomplete="off" placeholder="เช่น ปีกนก" value="' + esc(oq) + '">' +
       '<div id="newwrap">' + newBtnHtml() + '</div></div></div>';
   }
 
@@ -428,7 +439,7 @@ h1{margin:0;font-weight:700}
   function stepBrandHtml() {
     return wtop('brand') + wtitle('ยี่ห้อ', 'ไม่บังคับ · พิมพ์ยี่ห้อ หรือกดข้าม') +
       '<div class="wbody">' + ctxLine() + '<label class="lbl" for="br">ยี่ห้อ</label>' +
-      '<input id="br" class="bigin" type="text" autocomplete="off" placeholder="เช่น PTT 5W40" value="' + esc(entry.brand) + '"></div>' +
+      '<input id="br" class="bigin" type="text" enterkeyhint="next" autocomplete="off" placeholder="เช่น PTT 5W40" value="' + esc(entry.brand) + '"></div>' +
       '<div class="wfoot"><button type="button" class="btn" data-act="skip">ข้าม</button>' +
       '<button type="button" id="wnext" class="btn primary" data-act="next"' + (entry.brand.trim() ? '' : ' disabled') + '>ถัดไป</button></div>';
   }
@@ -440,7 +451,7 @@ h1{margin:0;font-weight:700}
     return wtop('note') + wtitle('หมายเหตุ', 'ไม่บังคับ · เช่น เปลี่ยนเพราะอะไร') +
       '<div class="wbody">' + ctxLine() + '<div style="display:flex;flex-wrap:wrap;gap:8px">' + chips + '</div>' +
       '<label class="lbl" for="nt" style="padding-top:8px">หรือพิมพ์เอง</label>' +
-      '<input id="nt" class="midin" style="min-height:56px;font-size:18px" type="text" autocomplete="off" placeholder="เช่น ครบระยะ" value="' + esc(entry.note) + '"></div>' +
+      '<input id="nt" class="midin" style="min-height:56px;font-size:18px" type="text" enterkeyhint="next" autocomplete="off" placeholder="เช่น ครบระยะ" value="' + esc(entry.note) + '"></div>' +
       '<div class="wfoot"><button type="button" class="btn primary" data-act="next">ถัดไป</button></div>';
   }
 
@@ -631,7 +642,7 @@ h1{margin:0;font-weight:700}
     lastSaved = snap;
     applyLocal(snap);
     setSaving(false);
-    var n = state.n || 0;
+    var n = (state.n || 0) + (entry && entry.fixedItem ? 1 : 0);
     if (n > 0) {
       // ถอยกลับไปหน้ารถ แล้วขึ้นหน้า "บันทึกแล้ว" ต่อจากนั้น เพื่อไม่ให้ปัดย้อนกลับไปเจอหน้าตรวจสอบซ้ำ
       pendingDone = true;
@@ -649,13 +660,23 @@ h1{margin:0;font-weight:700}
     saving = false;
     go({ screen: 'wizard', car: carIdx, step: 'item', edit: false, n: 1 }, 'w1');
   }
+  function startWizardForItem(carIdx, itemIdx) {
+    var c = DATA.cars[carIdx], it = c && c.items[itemIdx];
+    if (!it) return;
+    entry = newEntry(carIdx);
+    entry.item = it.name;
+    entry.fixedItem = true;
+    oq = '';
+    saving = false;
+    go({ screen: 'wizard', car: carIdx, step: 'mileage', edit: false, n: 1 }, 'w1');
+  }
   function wizGo(step, edit) {
     var n = (state.n || 0) + 1;
     go({ screen: 'wizard', car: state.car, step: step, edit: !!edit, n: n }, 'w' + n);
   }
   function nextStep(from) {
     if (state.edit) { back(); return; }
-    var order = ['item', 'mileage', 'brand', 'note', 'review'];
+    var order = stepsOf().concat(['review']);
     wizGo(order[order.indexOf(from) + 1]);
   }
   function again() {
@@ -782,6 +803,7 @@ h1{margin:0;font-weight:700}
     } else if (act === 'back') back();
     else if (act === 'refresh') refresh();
     else if (act === 'newentry') startWizard(state.car);
+    else if (act === 'changeitem') startWizardForItem(state.car, state.item);
     else if (act === 'pick') { entry.item = t.getAttribute('data-name'); oq = ''; nextStep('item'); }
     else if (act === 'pickother') { var nm = oq.trim(); if (nm) { entry.item = nm; oq = ''; nextStep('item'); } }
     else if (act === 'next') nextStep(state.step);
@@ -829,6 +851,22 @@ h1{margin:0;font-weight:700}
       entry.showExtra = true;
       if (state.screen === 'wizard' && state.step === 'review') rerender();
     });
+  });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncFooter);
+    window.visualViewport.addEventListener('scroll', syncFooter);
+  }
+  document.addEventListener('focusin', function () { setTimeout(syncFooter, 300); });
+  document.addEventListener('focusout', function () { setTimeout(syncFooter, 300); });
+
+  // ปุ่ม Return บนแป้นพิมพ์ตัวอักษร = ถัดไป (แป้นตัวเลขของ iPhone ไม่มีปุ่ม Return จึงใช้แถบปุ่มที่ยกขึ้นเหนือแป้นแทน)
+  app.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Enter' || state.screen !== 'wizard' || !entry) return;
+    var id = ev.target && ev.target.id;
+    if (id === 'br' && entry.brand.trim()) { ev.preventDefault(); ev.target.blur(); nextStep('brand'); }
+    else if (id === 'nt') { ev.preventDefault(); ev.target.blur(); nextStep('note'); }
+    else if (id === 'oi' && oq.trim()) { ev.preventDefault(); ev.target.blur(); entry.item = oq.trim(); oq = ''; nextStep('item'); }
   });
 
   // กลับมาเปิดแอปหลังพักไว้นาน: อัปเดตข้อมูลให้เอง
