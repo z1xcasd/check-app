@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>เช็คระยะ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="เช็คระยะ">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ink:#151B24; --muted:#4B5662; --accent:#2A5CAA; --next:#234C94;
+  --line:#E3E6EA; --line2:#ECEEF1; --soft:#F1F3F5; --edge:#D4D9DE;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff}
+body{color:var(--ink);font-family:'Sarabun',system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+button,input{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px calc(40px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;min-height:100vh}
+h1{margin:0;font-weight:700}
+.muted{color:var(--muted)}
+.topbar{display:flex;align-items:center;gap:8px}
+.round{flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:22px;border:1px solid var(--edge);background:#fff}
+.list{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.carrow{width:100%;min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border:none;border-bottom:1px solid var(--line2);background:transparent;text-align:left}
+.cicon{flex:none;width:44px;height:44px;border-radius:22px;border:1px solid var(--edge);display:flex;align-items:center;justify-content:center;color:var(--next)}
+.search{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}
+.search input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:16px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}
+.chip{flex:none;min-height:44px;padding:0 16px;border-radius:22px;border:1px solid var(--edge);background:#fff;font-size:15px;font-weight:500;white-space:nowrap}
+.chip.on{border-color:var(--accent);background:var(--accent);color:#fff;font-weight:600}
+.chip .n{font-variant-numeric:tabular-nums}
+.chip:not(.on) .n{color:var(--muted)}
+.head{padding:14px 0 6px;font-size:13.5px;line-height:1.5;font-weight:700;letter-spacing:.02em;color:var(--muted)}
+.item{width:100%;min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border:none;border-bottom:1px solid var(--line2);background:transparent;text-align:left}
+.item .t{min-width:0;display:flex;flex-direction:column;gap:1px}
+.item .nm{font-size:16px;line-height:1.4;font-weight:600;overflow-wrap:anywhere}
+.item .sb{font-size:13.5px;line-height:1.45;color:var(--muted);overflow-wrap:anywhere}
+.item .r{flex:none;display:flex;align-items:center;gap:8px}
+.item .rr{display:flex;flex-direction:column;align-items:flex-end;gap:1px;font-variant-numeric:tabular-nums}
+.item .mi{font-size:15px;line-height:1.4;font-weight:600}
+.item .nx{font-size:13px;line-height:1.45;font-weight:600;color:var(--next)}
+.item .ag{font-size:13px;line-height:1.45;color:var(--muted)}
+.kvrow{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;min-height:52px;padding:13px 0;border-bottom:1px solid var(--line2)}
+.kvrow .k{flex:none;font-size:15px;line-height:1.6;color:var(--muted)}
+.kvrow .v{min-width:0;text-align:right;font-size:16px;line-height:1.6;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kvrow .v.missing{font-weight:400;color:var(--muted)}
+.hist{min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line2)}
+.hist .d{font-size:16px;line-height:1.4;font-weight:600}
+.hist .m{font-size:13.5px;line-height:1.45;color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.hist .u{flex:none;font-size:14px;line-height:1.5;font-weight:600;font-variant-numeric:tabular-nums}
+.photobox{min-height:160px;border-radius:12px;border:1px dashed var(--edge);background:var(--soft);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:14px;line-height:1.6;overflow:hidden}
+.photobox img{display:block;width:100%;height:auto}
+.empty{padding:32px 8px;text-align:center;color:var(--muted);font-size:15px;line-height:1.6}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;flex:1;color:var(--muted);font-size:15px;text-align:center;padding:48px 0}
+.spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:sp .9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.retry{min-height:44px;padding:0 20px;border-radius:22px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:15px;font-weight:600}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  var app = document.getElementById('app');
+  var API = String(window.API_URL || '');
+  var CACHE_KEY = 'cc_data_v1';
+  var DATA = null;          // { cars: [...] }
+  var stamp = 0;            // เวลาที่ข้อมูลล่าสุดถูกอัปเดต (ms)
+  var status = 'loading';   // loading | ok | offline
+  var inflight = false;
+  var state = { screen: 'home', car: 0, item: 0 };
+  var filter = { q: '', cat: 'ทั้งหมด' };
+  var listScroll = 0;
+  var MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  var CATS = ['ของเหลว', 'ช่วงล่าง', 'ล้อ/ยาง', 'เกียร์/เครื่อง', 'อื่น ๆ'];
+
+  /* ---------- ตัวช่วย ---------- */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtDate(iso) {
+    var p = iso.split('-').map(Number);
+    return p[2] + ' ' + MONTHS[p[1] - 1] + ' ' + String(p[0] + 543).slice(-2);
+  }
+  function fmtNum(n) { return n ? Number(n).toLocaleString('en-US') : ''; }
+  function age(iso) {
+    var p = iso.split('-').map(Number);
+    var y = p[0], m = p[1], d = p[2];
+    var now = new Date();
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var months = (today.getFullYear() - y) * 12 + (today.getMonth() + 1 - m);
+    if (today.getDate() < d) months--;
+    if (months < 0) return '';
+    var dim = new Date(y, m - 1 + months + 1, 0).getDate();
+    var base = new Date(y, m - 1 + months, Math.min(d, dim));
+    var days = Math.round((today - base) / 86400000);
+    var yrs = Math.floor(months / 12), mo = months % 12;
+    return (yrs > 0 ? yrs + ' ปี ' : '') + mo + ' เดือน ' + days + ' วัน';
+  }
+  function catOf(name) {
+    if (/น้ำมัน|น้ำยา/.test(name)) return 'ของเหลว';
+    if (/ลูกหมาก|ปีกนก|โช๊ค|โช้ค|แร็ค|คันชัก|เบ้า/.test(name)) return 'ช่วงล่าง';
+    if (/แท่นเครื่อง/.test(name)) return 'เกียร์/เครื่อง';
+    if (/^ล้อ|^ยาง|ยางรถ/.test(name)) return 'ล้อ/ยาง';
+    if (/เกียร์|เครื่อง|วาล์ว|เฟือง|ปั๊ม|หัวเทียน|กรอง|สายพาน/.test(name)) return 'เกียร์/เครื่อง';
+    return 'อื่น ๆ';
+  }
+  function isMoto(t) { return /มอเตอร์ไซค์|มอไซค์|มอเตอร์ไซด์|มอไซด์/.test(t || ''); }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function fmtStamp(ts) {
+    var d = new Date(ts), now = new Date();
+    var hm = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    if (d.toDateString() === now.toDateString()) return 'วันนี้ ' + hm;
+    return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + hm;
+  }
+
+  var SVG_CAR = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14a1 1 0 0 0 1-1v-3.5L18 7H6l-2 5.5V16a1 1 0 0 0 1 1z"/><path d="M4 12.5h16"/><circle cx="8" cy="17" r="1.6"/><circle cx="16" cy="17" r="1.6"/></svg>';
+  var SVG_MOTO = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6.5" cy="17" r="2.5"/><circle cx="17.5" cy="17" r="2.5"/><path d="M3.5 14.5V12.5c0-1.4 1-2.5 2.5-2.5H9l1.5 4.5H17"/><path d="M17.5 17L15.5 6H12.5"/></svg>';
+  var CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7580" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+  var BACK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+  var REFRESH = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.1"/><path d="M20 4v7h-7"/></svg>';
+  var MAG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4B5662" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>';
+
+  /* ---------- หน้า 1: เลือกรถ ---------- */
+  function statusText() {
+    if (status === 'loading') return 'กำลังอัปเดต…';
+    if (status === 'offline') return 'ออฟไลน์ · แสดงข้อมูลเมื่อ ' + (stamp ? fmtStamp(stamp) : '-');
+    return 'อัปเดตแล้ว ' + fmtStamp(stamp);
+  }
+  function updateStatus() {
+    var el = document.getElementById('status');
+    if (el) el.textContent = statusText();
+  }
+  function homeHtml() {
+    var h = '<div class="topbar" style="align-items:flex-start;justify-content:space-between;padding:8px 0 4px">' +
+      '<div style="display:flex;flex-direction:column;gap:2px"><h1 style="font-size:30px;line-height:1.25">เช็คระยะ</h1>' +
+      '<p class="muted" style="margin:0;font-size:15px;line-height:1.5">เลือกรถเพื่อดูรายการที่ยังใช้อยู่</p></div>' +
+      '<button class="round" type="button" data-act="refresh" aria-label="โหลดข้อมูลใหม่">' + REFRESH + '</button></div>';
+    h += '<div class="list">';
+    DATA.cars.forEach(function (c, i) {
+      var oldest = c.items[0];
+      var summary = oldest ? 'เก่าสุด: ' + oldest.name + ' · ' + age(oldest.date) : 'ยังไม่มีรายการ';
+      h += '<button type="button" class="carrow" data-act="car" data-i="' + i + '">' +
+        '<span style="min-width:0;display:flex;align-items:center;gap:12px">' +
+        '<span class="cicon">' + (isMoto(c.type) ? SVG_MOTO : SVG_CAR) + '</span>' +
+        '<span style="min-width:0;display:flex;flex-direction:column;gap:1px">' +
+        '<span style="font-size:18px;line-height:1.4;font-weight:600">' + esc(c.name) +
+        (c.type ? ' <span class="muted" style="font-size:13.5px;font-weight:400">' + esc(c.type) + '</span>' : '') + '</span>' +
+        '<span class="muted" style="font-size:14px;line-height:1.5">' + esc(summary) + '</span></span></span>' +
+        '<span style="flex:none;display:flex;align-items:center;gap:8px">' +
+        '<span style="min-width:28px;font-size:18px;line-height:1.3;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">' + c.items.length + '</span>' + CHEV + '</span></button>';
+    });
+    h += '</div><p class="muted" style="margin:4px 0 0;font-size:13.5px;line-height:1.6;text-align:center">ตัวเลขคือจำนวนรายการที่ยังใช้อยู่ (ไม่นับที่เปลี่ยนแล้ว)</p>' +
+      '<p id="status" class="muted" style="margin:0;font-size:13px;line-height:1.6;text-align:center">' + esc(statusText()) + '</p>';
+    return h;
+  }
+
+  /* ---------- หน้า 2: รายการ (ค้นหา + ชิปกรอง + จัดกลุ่ม) ---------- */
+  function full(c) {
+    return c.items.map(function (it, i) { return { it: it, idx: i, cat: catOf(it.name) }; });
+  }
+  function matches(x) {
+    var q = filter.q.trim().toLowerCase();
+    if (filter.cat !== 'ทั้งหมด' && x.cat !== filter.cat) return false;
+    if (!q) return true;
+    return x.it.name.toLowerCase().indexOf(q) >= 0 || (x.it.brand || '').toLowerCase().indexOf(q) >= 0;
+  }
+  function chipsHtml(c) {
+    var all = full(c), counts = {};
+    all.forEach(function (x) { counts[x.cat] = (counts[x.cat] || 0) + 1; });
+    var keys = [{ k: 'ทั้งหมด', n: all.length }].concat(
+      CATS.filter(function (k) { return counts[k]; }).map(function (k) { return { k: k, n: counts[k] }; }));
+    if (!keys.some(function (x) { return x.k === filter.cat; })) filter.cat = 'ทั้งหมด';
+    return keys.map(function (x) {
+      var on = x.k === filter.cat;
+      return '<button type="button" class="chip' + (on ? ' on' : '') + '" data-act="chip" data-k="' + esc(x.k) + '" aria-pressed="' + on + '">' +
+        esc(x.k) + ' <span class="n">' + x.n + '</span></button>';
+    }).join('');
+  }
+  function rowHtml(x) {
+    var it = x.it;
+    return '<button type="button" class="item" data-act="item" data-i="' + x.idx + '">' +
+      '<span class="t"><span class="nm">' + esc(it.name) + '</span>' +
+      '<span class="sb">' + esc(fmtDate(it.date)) + (it.brand ? ' · ' + esc(it.brand) : '') + '</span></span>' +
+      '<span class="r"><span class="rr"><span class="mi">' + fmtNum(it.mileage) + '</span>' +
+      (it.next ? '<span class="nx">ถัดไป ' + fmtNum(it.next) + '</span>' : '<span class="ag">' + esc(age(it.date)) + '</span>') +
+      '</span>' + CHEV + '</span></button>';
+  }
+  function rowsHtml(c) {
+    var all = full(c), shown = all.filter(matches), h = '';
+    if (!shown.length) {
+      return '<div class="empty">' + (all.length ? 'ไม่พบรายการที่ตรงกับคำค้น' : 'ยังไม่มีรายการของรถคันนี้') + '</div>';
+    }
+    if (filter.cat === 'ทั้งหมด') {
+      CATS.forEach(function (k) {
+        var g = shown.filter(function (x) { return x.cat === k; });
+        if (g.length) h += '<div class="head">' + esc(k) + '</div>' + g.map(rowHtml).join('');
+      });
+    } else {
+      h = shown.map(rowHtml).join('');
+    }
+    return h;
+  }
+  function listHtml() {
+    var c = DATA.cars[state.car];
+    if (!c) return homeHtml();
+    var n = c.items.length;
+    return '<div class="topbar"><button type="button" class="round" data-act="back" aria-label="กลับไปเลือกรถ">' + BACK + '</button>' +
+      '<h1 style="font-size:24px;line-height:1.3">' + esc(c.name) + '</h1>' +
+      '<span class="muted" style="font-size:14px;line-height:1.5">' + esc((c.type ? c.type + ' · ' : '') + n + ' รายการ') + '</span></div>' +
+      '<label for="q" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">ค้นหารายการ</label>' +
+      '<div class="search">' + MAG + '<input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="ค้นหารายการหรือยี่ห้อ" value="' + esc(filter.q) + '"></div>' +
+      '<div class="chips" id="chips">' + chipsHtml(c) + '</div>' +
+      '<div class="muted" style="font-size:14px;line-height:1.5">' + (n ? 'เรียงเก่าสุดก่อน · แตะแถวเพื่อดูรายละเอียด' : 'ยังไม่มีรายการของรถคันนี้') + '</div>' +
+      '<div class="list" id="rows">' + rowsHtml(c) + '</div>';
+  }
+
+  /* ---------- หน้า 3: รายละเอียด ---------- */
+  function kv(label, value, suffix) {
+    var has = value !== '' && value != null && value !== 0;
+    return '<div class="kvrow"><span class="k">' + esc(label) + '</span><span class="v' + (has ? '' : ' missing') + '">' +
+      esc(has ? value + (suffix || '') : 'ไม่ได้บันทึก') + '</span></div>';
+  }
+  function itemHtml() {
+    var c = DATA.cars[state.car];
+    var it = c && c.items[state.item];
+    if (!it) return homeHtml();
+    var h = '<div class="topbar"><button type="button" class="round" data-act="back" aria-label="กลับไปรายการ">' + BACK + '</button>' +
+      '<span class="muted" style="font-size:15px;line-height:1.5">' + esc(c.name + (c.type ? ' · ' + c.type : '')) + '</span></div>' +
+      '<div style="display:flex;flex-direction:column;gap:2px;padding:4px 0 8px"><h1 style="font-size:26px;line-height:1.3;overflow-wrap:anywhere">' + esc(it.name) + '</h1>' +
+      (it.next ? '<p style="margin:0;font-size:16px;line-height:1.5;font-weight:600;color:var(--next);font-variant-numeric:tabular-nums">ครั้งถัดไป ' + fmtNum(it.next) + ' กม.</p>' : '') + '</div>';
+    h += '<div class="list">' +
+      kv('วันที่เปลี่ยน', fmtDate(it.date)) +
+      kv('เลขไมล์ที่เปลี่ยน', fmtNum(it.mileage), ' กม.') +
+      kv('เลขไมล์ถัดไป', fmtNum(it.next), ' กม.') +
+      kv('อายุการใช้งาน', age(it.date)) +
+      kv('ยี่ห้อ', it.brand) +
+      kv('ราคา', it.price ? fmtNum(it.price) : '', ' บาท') +
+      kv('ร้าน/อู่', it.shop) +
+      kv('หมายเหตุ', it.reason) + '</div>';
+    if (it.photo) {
+      h += '<div style="display:flex;flex-direction:column;gap:8px;padding-top:6px"><div class="head" style="padding:0">รูปที่แนบ</div>' +
+        '<div class="photobox" id="photo"><span>กำลังโหลดรูป…</span></div></div>';
+    }
+    h += '<div class="head" style="padding:14px 0 0">ประวัติการเปลี่ยน</div><div class="list">';
+    if (it.history && it.history.length) {
+      it.history.forEach(function (x) {
+        h += '<div class="hist"><span style="min-width:0;display:flex;flex-direction:column;gap:1px"><span class="d">' + esc(fmtDate(x.date)) + '</span>' +
+          '<span class="m">' + fmtNum(x.mileage) + ' กม.' + (x.brand ? ' · ' + esc(x.brand) : '') + '</span></span>' +
+          (x.used ? '<span class="u">ใช้ไป ' + fmtNum(x.used) + ' กม.</span>' : '') + '</div>';
+      });
+    } else {
+      h += '<div class="empty" style="text-align:left;padding:18px 0">ยังไม่มีประวัติก่อนหน้า</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function loadingHtml() {
+    return '<div class="center" role="status"><div class="spin"></div><div>กำลังโหลดข้อมูล…</div></div>';
+  }
+  function errorHtml(msg) {
+    return '<div class="center"><div>โหลดข้อมูลไม่สำเร็จ</div><div style="font-size:13px;max-width:320px;overflow-wrap:anywhere">' + esc(msg || '') + '</div>' +
+      '<button type="button" class="retry" data-act="refresh">ลองอีกครั้ง</button></div>';
+  }
+
+  /* ---------- วาดหน้า ---------- */
+  function view(st) {
+    var prev = state.screen;
+    if (st) state = { screen: st.screen || 'home', car: st.car || 0, item: st.item || 0 };
+    if (!DATA) return;
+    if (state.screen === 'list') app.innerHTML = listHtml();
+    else if (state.screen === 'item') app.innerHTML = itemHtml();
+    else app.innerHTML = homeHtml();
+    if (state.screen === 'list' && prev === 'item') window.scrollTo(0, listScroll);
+    else window.scrollTo(0, 0);
+    if (state.screen === 'item') loadPhoto();
+  }
+
+  /* ---------- เครือข่าย ---------- */
+  function fetchJson(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(function (t) {
+      try { return JSON.parse(t); }
+      catch (e) { throw new Error('ตอบกลับไม่ใช่ข้อมูลที่อ่านได้ ตรวจลิงก์ใน config.js และสิทธิ์ Web app ต้องเป็น Anyone'); }
+    });
+  }
+  function apiUrl(q) { return API + (API.indexOf('?') >= 0 ? '&' : '?') + q; }
+
+  function loadPhoto() {
+    var c = DATA.cars[state.car];
+    var it = c && c.items[state.item];
+    var box = document.getElementById('photo');
+    if (!it || !it.photo || !box) return;
+    var want = it.photo, nm = it.name;
+    fetchJson(apiUrl('action=photo&id=' + encodeURIComponent(want))).then(function (j) {
+      if (!j || !j.ok) throw new Error(j && j.message);
+      var b = document.getElementById('photo');
+      var cur = DATA && DATA.cars[state.car] && DATA.cars[state.car].items[state.item];
+      if (!b || state.screen !== 'item' || !cur || cur.photo !== want) return;
+      b.innerHTML = '<img alt="รูปอะไหล่ ' + esc(nm) + '" src="' + j.url + '">';
+    }).catch(function () {
+      var b = document.getElementById('photo');
+      if (b) b.innerHTML = '<span>โหลดรูปไม่ได้</span>';
+    });
+  }
+
+  function readCache() {
+    try {
+      var s = localStorage.getItem(CACHE_KEY);
+      var o = s ? JSON.parse(s) : null;
+      return o && o.d && o.d.cars ? o : null;
+    } catch (e) { return null; }
+  }
+  function writeCache() {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ t: stamp, d: DATA })); } catch (e) {}
+  }
+
+  function onData(j) {
+    DATA = { cars: j.cars };
+    stamp = Date.now();
+    status = 'ok';
+    writeCache();
+    if (state.screen === 'home') view(state);
+    else if (state.screen === 'list' && DATA.cars[state.car]) {
+      var c = DATA.cars[state.car];
+      var chips = document.getElementById('chips'), rows = document.getElementById('rows');
+      if (chips && rows) { chips.innerHTML = chipsHtml(c); rows.innerHTML = rowsHtml(c); }
+    }
+  }
+
+  function refresh() {
+    if (inflight) return;
+    if (!API || /PASTE_YOUR/.test(API)) {
+      app.innerHTML = errorHtml('ยังไม่ได้ใส่ลิงก์ Web app ในไฟล์ config.js');
+      return;
+    }
+    inflight = true;
+    status = 'loading';
+    updateStatus();
+    if (!DATA) app.innerHTML = loadingHtml();
+    fetchJson(apiUrl('action=data')).then(function (j) {
+      if (!j || !j.ok || !j.cars) throw new Error((j && j.message) || 'ข้อมูลไม่ถูกต้อง');
+      onData(j);
+    }).catch(function (err) {
+      if (DATA) { status = 'offline'; updateStatus(); }
+      else app.innerHTML = errorHtml(err && err.message);
+    }).then(function () { inflight = false; });
+  }
+
+  /* ---------- นำทาง: ใช้ประวัติของเบราว์เซอร์ ปัดจากขอบซ้ายเพื่อย้อนกลับได้ ---------- */
+  function go(st, hash) {
+    view(st);
+    try { history.pushState({ screen: st.screen, car: st.car || 0, item: st.item || 0 }, '', '#' + (hash || '')); } catch (e) {}
+  }
+  function back() {
+    if (history.state && history.state.screen && history.state.screen !== 'home') { history.back(); return; }
+    view(state.screen === 'item' ? { screen: 'list', car: state.car } : { screen: 'home' });
+  }
+  window.addEventListener('popstate', function (e) {
+    view(e.state && e.state.screen ? e.state : { screen: 'home' });
+  });
+
+  app.addEventListener('click', function (ev) {
+    var t = ev.target.closest('[data-act]');
+    if (!t) return;
+    var act = t.getAttribute('data-act');
+    var i = Number(t.getAttribute('data-i'));
+    if (act === 'car') {
+      filter = { q: '', cat: 'ทั้งหมด' };
+      go({ screen: 'list', car: i }, 'car' + i);
+    } else if (act === 'item') {
+      listScroll = window.pageYOffset || document.documentElement.scrollTop || 0;
+      go({ screen: 'item', car: state.car, item: i }, 'item' + i);
+    } else if (act === 'chip') {
+      filter.cat = t.getAttribute('data-k');
+      var c = DATA.cars[state.car];
+      document.getElementById('chips').innerHTML = chipsHtml(c);
+      document.getElementById('rows').innerHTML = rowsHtml(c);
+    } else if (act === 'back') back();
+    else if (act === 'refresh') refresh();
+  });
+
+  // พิมพ์ค้นหา: อัปเดตเฉพาะรายการ ไม่วาดช่องค้นหาใหม่ (เคอร์เซอร์จะไม่หลุด)
+  app.addEventListener('input', function (ev) {
+    if (!ev.target || ev.target.id !== 'q' || state.screen !== 'list' || !DATA) return;
+    filter.q = ev.target.value;
+    document.getElementById('rows').innerHTML = rowsHtml(DATA.cars[state.car]);
+  });
+
+  // กลับมาเปิดแอปหลังพักไว้นาน: อัปเดตข้อมูลให้เอง
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && Date.now() - stamp > 5 * 60 * 1000) refresh();
+  });
+  window.addEventListener('online', function () { refresh(); });
+
+  /* ---------- เริ่มต้น ---------- */
+  try { history.replaceState({ screen: 'home', car: 0, item: 0 }, '', location.pathname + location.search); } catch (e) {}
+  var cached = readCache();
+  if (cached) {
+    DATA = cached.d;
+    stamp = cached.t || 0;
+    view({ screen: 'home' });
+  } else {
+    app.innerHTML = loadingHtml();
+  }
+  refresh();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+})();
+</script>
+</body>
+</html>
