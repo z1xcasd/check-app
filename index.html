@@ -383,7 +383,9 @@ h1{margin:0;font-weight:700}
     if (!f) return;
     var vv = window.visualViewport;
     var kb = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
-    f.style.bottom = kb + 'px';
+    // iPhone มีแถบ ^ v ✓ คั่นเหนือแป้นพิมพ์ซึ่งไม่นับรวมในส่วนที่วัดได้ จึงเผื่อเพิ่ม
+    var ios = /iPhone|iPad|iPod/.test(String((window.navigator && window.navigator.userAgent) || ''));
+    f.style.bottom = (kb + (kb > 0 && ios ? 52 : 0)) + 'px';
   }
 
   function wtop(step) {
@@ -424,8 +426,8 @@ h1{margin:0;font-weight:700}
     return wtop('mileage') + wtitle('เลขไมล์ตอนเปลี่ยน', 'กรอกเฉพาะตัวเลข') +
       '<div class="wbody">' + ctxLine() + '<label class="lbl" for="mi">เลขไมล์ที่เปลี่ยน (กม.)</label>' +
       '<input id="mi" class="bigin num" type="text" inputmode="numeric" autocomplete="off" placeholder="0" value="' + esc(entry.mileage) + '">' +
-      '<div class="ctx" style="font-size:14.5px;line-height:1.6">' + esc(hint) + '</div><div id="mwarn"></div><div id="mnext"></div></div>' +
-      '<div class="wfoot"><button type="button" id="wnext" class="btn primary" data-act="next"' + (ok ? '' : ' disabled') + '>ถัดไป</button></div>';
+      '<div class="ctx" style="font-size:14.5px;line-height:1.6">' + esc(hint) + '</div><div id="mwarn"></div><div id="mnext"></div>' +
+      '<button type="button" id="wnext" class="btn primary" style="width:100%;flex:none;margin-top:6px" data-act="next"' + (ok ? '' : ' disabled') + '>ถัดไป</button></div>';
   }
   function updateMileageUI() {
     var c = eCar(); if (!c) return;
@@ -439,9 +441,9 @@ h1{margin:0;font-weight:700}
   function stepBrandHtml() {
     return wtop('brand') + wtitle('ยี่ห้อ', 'ไม่บังคับ · พิมพ์ยี่ห้อ หรือกดข้าม') +
       '<div class="wbody">' + ctxLine() + '<label class="lbl" for="br">ยี่ห้อ</label>' +
-      '<input id="br" class="bigin" type="text" enterkeyhint="next" autocomplete="off" placeholder="เช่น PTT 5W40" value="' + esc(entry.brand) + '"></div>' +
-      '<div class="wfoot"><button type="button" class="btn" data-act="skip">ข้าม</button>' +
-      '<button type="button" id="wnext" class="btn primary" data-act="next"' + (entry.brand.trim() ? '' : ' disabled') + '>ถัดไป</button></div>';
+      '<input id="br" class="bigin" type="text" enterkeyhint="next" autocomplete="off" placeholder="เช่น PTT 5W40" value="' + esc(entry.brand) + '">' +
+      '<div style="display:flex;gap:10px;margin-top:6px"><button type="button" class="btn" data-act="skip">ข้าม</button>' +
+      '<button type="button" id="wnext" class="btn primary" data-act="next"' + (entry.brand.trim() ? '' : ' disabled') + '>ถัดไป</button></div></div>';
   }
 
   function stepNoteHtml() {
@@ -451,8 +453,8 @@ h1{margin:0;font-weight:700}
     return wtop('note') + wtitle('หมายเหตุ', 'ไม่บังคับ · เช่น เปลี่ยนเพราะอะไร') +
       '<div class="wbody">' + ctxLine() + '<div style="display:flex;flex-wrap:wrap;gap:8px">' + chips + '</div>' +
       '<label class="lbl" for="nt" style="padding-top:8px">หรือพิมพ์เอง</label>' +
-      '<input id="nt" class="midin" style="min-height:56px;font-size:18px" type="text" enterkeyhint="next" autocomplete="off" placeholder="เช่น ครบระยะ" value="' + esc(entry.note) + '"></div>' +
-      '<div class="wfoot"><button type="button" class="btn primary" data-act="next">ถัดไป</button></div>';
+      '<input id="nt" class="midin" style="min-height:56px;font-size:18px" type="text" enterkeyhint="next" autocomplete="off" placeholder="เช่น ครบระยะ" value="' + esc(entry.note) + '">' +
+      '<button type="button" class="btn primary" style="width:100%;flex:none;margin-top:6px" data-act="next">ถัดไป</button></div>';
   }
 
   function rvFixed(label, value, muted) {
