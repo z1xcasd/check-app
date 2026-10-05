@@ -1,6 +1,6 @@
 // เก็บไฟล์หน้าแอปไว้ในเครื่อง เปิดได้ทันทีแม้สัญญาณช้า (ข้อมูลรถเก็บแยกในแอป)
 // ถ้าแก้ไฟล์แอป ให้เปลี่ยนเลข v1 เป็น v2, v3 ... เพื่อบังคับให้เครื่องโหลดไฟล์ใหม่
-var CACHE = 'cc-v1';
+var CACHE = 'cc-v2';
 var FILES = ['./', './index.html', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
