@@ -101,12 +101,27 @@ h1{margin:0;font-weight:700}
 .sheet{width:100%;max-width:560px;background:#fff;border-radius:20px 20px 0 0;padding:22px 20px calc(22px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
 .sheet h2{margin:0;font-size:22px;line-height:1.3}
 .errtxt{font-size:14.5px;line-height:1.6;color:#9B2C1F}
-@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.due{align-self:flex-start;display:inline-block;margin-top:3px;padding:2px 8px;border-radius:6px;font-size:13px;line-height:1.45;font-weight:600}
+.due.over{background:#FDECEA;color:#9B2C1F}
+.due.soon{background:#FFF1D6;color:#8A4B00}
+.duep{margin:2px 0 0;font-size:15px;line-height:1.5;font-weight:600}
+.duep.over{color:#9B2C1F}
+.duep.soon{color:#8A4B00}
+.tbtn{margin-left:auto;flex:none;min-height:44px;padding:0 16px;border-radius:22px;border:1px solid var(--edge);background:#fff;font-size:15px;font-weight:600;color:var(--next)}
+button.hist{width:100%;border:none;border-bottom:1px solid var(--line2);background:transparent;text-align:left}
+.hist .hr{flex:none;display:flex;align-items:center;gap:8px}
+.ef{display:flex;flex-direction:column;gap:6px}
+.btn.danger{width:100%;flex:none;border-color:#E8B4AC;color:#9B2C1F;background:#fff}
+.btn.dangerfill{flex:1;border:none;background:#B3261E;color:#fff;font-weight:700}
+.toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translate(-50%,-160%);z-index:30;max-width:90%;padding:10px 18px;border-radius:22px;background:#151B24;color:#fff;font-size:15px;line-height:1.4;font-weight:600;box-shadow:0 6px 18px rgba(21,27,36,.28);transition:transform .25s ease}
+.toast.show{transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}.toast{transition:none}}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
 <input type="file" id="pf" accept="image/*" hidden>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script src="config.js"></script>
 <script>
@@ -118,11 +133,12 @@ h1{margin:0;font-weight:700}
   var stamp = 0;            // เวลาที่ข้อมูลล่าสุดถูกอัปเดต (ms)
   var status = 'loading';   // loading | ok | offline
   var inflight = false;
-  var state = { screen: 'home', car: 0, item: 0, step: '', n: 0, edit: false };
+  var state = { screen: 'home', car: 0, item: 0, step: '', n: 0, edit: false, h: -1 };
   var filter = { q: '', cat: 'ทั้งหมด' };
   var listScroll = 0;
   var MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   var CATS = ['ของเหลว', 'ช่วงล่าง', 'ล้อ/ยาง', 'เกียร์/เครื่อง', 'อื่น ๆ'];
+  var DUE_CHIP = 'ถึงรอบเวลา';
 
   /* ---------- ตัวช่วย ---------- */
   function esc(s) {
@@ -157,6 +173,28 @@ h1{margin:0;font-weight:700}
     if (/เกียร์|เครื่อง|วาล์ว|เฟือง|ปั๊ม|หัวเทียน|กรอง|สายพาน/.test(name)) return 'เกียร์/เครื่อง';
     return 'อื่น ๆ';
   }
+  // รอบเปลี่ยนตามเวลา (เดือน) จากชีต Items คอลัมน์ C
+  function monthsFor(name) {
+    var std = (DATA && DATA.std) || [], key = String(name).toLowerCase();
+    for (var i = 0; i < std.length; i++) if (std[i].n.toLowerCase() === key) return std[i].mo || 0;
+    return 0;
+  }
+  // over = ครบหรือเกินรอบแล้ว, soon = ครบภายใน 30 วัน, ok = ยังไม่ถึง
+  function dueInfo(it) {
+    var mo = monthsFor(it.name);
+    if (!mo || !it.date) return null;
+    var p = it.date.split('-').map(Number);
+    var dim = new Date(p[0], p[1] - 1 + mo + 1, 0).getDate();
+    var due = new Date(p[0], p[1] - 1 + mo, Math.min(p[2], dim));
+    var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var days = Math.round((due - today) / 86400000);
+    var level = days <= 0 ? 'over' : days <= 30 ? 'soon' : 'ok';
+    var label = '';
+    if (level === 'over') label = days === 0 ? 'ครบรอบเวลาวันนี้' : 'เกินรอบเวลา ' + age(isoOf(due)).replace(/^0 เดือน /, '');
+    else if (level === 'soon') label = 'ครบรอบเวลาในอีก ' + days + ' วัน';
+    return { mo: mo, due: isoOf(due), days: days, level: level, label: label };
+  }
+  function dueTag(d) { return d && d.level !== 'ok' ? '<span class="due ' + d.level + '">' + esc(d.label) + '</span>' : ''; }
   function isMoto(t) { return /มอเตอร์ไซค์|มอไซค์|มอเตอร์ไซด์|มอไซด์/.test(t || ''); }
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function fmtStamp(ts) {
@@ -192,13 +230,19 @@ h1{margin:0;font-weight:700}
     DATA.cars.forEach(function (c, i) {
       var oldest = c.items[0];
       var summary = oldest ? 'เก่าสุด: ' + oldest.name + ' · ' + age(oldest.date) : 'ยังไม่มีรายการ';
+      var nOver = 0, nSoon = 0;
+      c.items.forEach(function (it) { var d = dueInfo(it); if (d && d.level === 'over') nOver++; else if (d && d.level === 'soon') nSoon++; });
+      var warn = [];
+      if (nOver) warn.push('เกินรอบเวลา ' + nOver + ' รายการ');
+      if (nSoon) warn.push('ใกล้ครบ ' + nSoon + ' รายการ');
       h += '<button type="button" class="carrow" data-act="car" data-i="' + i + '">' +
         '<span style="min-width:0;display:flex;align-items:center;gap:12px">' +
         '<span class="cicon">' + (isMoto(c.type) ? SVG_MOTO : SVG_CAR) + '</span>' +
         '<span style="min-width:0;display:flex;flex-direction:column;gap:1px">' +
         '<span style="font-size:18px;line-height:1.4;font-weight:600">' + esc(c.name) +
         (c.type ? ' <span class="muted" style="font-size:13.5px;font-weight:400">' + esc(c.type) + '</span>' : '') + '</span>' +
-        '<span class="muted" style="font-size:14px;line-height:1.5">' + esc(summary) + '</span></span></span>' +
+        '<span class="muted" style="font-size:14px;line-height:1.5">' + esc(summary) + '</span>' +
+        (warn.length ? '<span class="due ' + (nOver ? 'over' : 'soon') + '">' + esc(warn.join(' · ')) + '</span>' : '') + '</span></span>' +
         '<span style="flex:none;display:flex;align-items:center;gap:8px">' +
         '<span style="min-width:28px;font-size:18px;line-height:1.3;font-weight:700;text-align:right;font-variant-numeric:tabular-nums">' + c.items.length + '</span>' + CHEV + '</span></button>';
     });
@@ -209,18 +253,20 @@ h1{margin:0;font-weight:700}
 
   /* ---------- หน้า 2: รายการ (ค้นหา + ชิปกรอง + จัดกลุ่ม) ---------- */
   function full(c) {
-    return c.items.map(function (it, i) { return { it: it, idx: i, cat: catOf(it.name) }; });
+    return c.items.map(function (it, i) { return { it: it, idx: i, cat: catOf(it.name), due: dueInfo(it) }; });
   }
   function matches(x) {
     var q = filter.q.trim().toLowerCase();
-    if (filter.cat !== 'ทั้งหมด' && x.cat !== filter.cat) return false;
+    if (filter.cat === DUE_CHIP) { if (!x.due || x.due.level === 'ok') return false; }
+    else if (filter.cat !== 'ทั้งหมด' && x.cat !== filter.cat) return false;
     if (!q) return true;
     return x.it.name.toLowerCase().indexOf(q) >= 0 || (x.it.brand || '').toLowerCase().indexOf(q) >= 0;
   }
   function chipsHtml(c) {
     var all = full(c), counts = {};
     all.forEach(function (x) { counts[x.cat] = (counts[x.cat] || 0) + 1; });
-    var keys = [{ k: 'ทั้งหมด', n: all.length }].concat(
+    var nDue = all.filter(function (x) { return x.due && x.due.level !== 'ok'; }).length;
+    var keys = [{ k: 'ทั้งหมด', n: all.length }].concat(nDue ? [{ k: DUE_CHIP, n: nDue }] : [], 
       CATS.filter(function (k) { return counts[k]; }).map(function (k) { return { k: k, n: counts[k] }; }));
     if (!keys.some(function (x) { return x.k === filter.cat; })) filter.cat = 'ทั้งหมด';
     return keys.map(function (x) {
@@ -233,25 +279,25 @@ h1{margin:0;font-weight:700}
     var it = x.it;
     return '<button type="button" class="item" data-act="item" data-i="' + x.idx + '">' +
       '<span class="t"><span class="nm">' + esc(it.name) + '</span>' +
-      '<span class="sb">' + esc(fmtDate(it.date)) + (it.brand ? ' · ' + esc(it.brand) : '') + '</span></span>' +
+      '<span class="sb">' + esc(fmtDate(it.date)) + (it.brand ? ' · ' + esc(it.brand) : '') + '</span>' + dueTag(x.due) + '</span>' +
       '<span class="r"><span class="rr"><span class="mi">' + fmtNum(it.mileage) + '</span>' +
       (it.next ? '<span class="nx">ถัดไป ' + fmtNum(it.next) + '</span>' : '<span class="ag">' + esc(age(it.date)) + '</span>') +
       '</span>' + CHEV + '</span></button>';
   }
+  // ใหม่สุดอยู่บน: เรียงตามวันที่ แล้วเลขไมล์ แล้วลำดับที่บันทึก
+  function newestFirst(a, b) {
+    var da = String(a.it.date || ''), db = String(b.it.date || '');
+    if (da !== db) return da < db ? 1 : -1;
+    var ma = Number(a.it.mileage) || 0, mb = Number(b.it.mileage) || 0;
+    if (ma !== mb) return mb - ma;
+    return b.idx - a.idx;
+  }
   function rowsHtml(c) {
-    var all = full(c), shown = all.filter(matches), h = '';
+    var all = full(c), shown = all.filter(matches);
     if (!shown.length) {
       return '<div class="empty">' + (all.length ? 'ไม่พบรายการที่ตรงกับคำค้น' : 'ยังไม่มีรายการของรถคันนี้') + '</div>';
     }
-    if (filter.cat === 'ทั้งหมด') {
-      CATS.forEach(function (k) {
-        var g = shown.filter(function (x) { return x.cat === k; });
-        if (g.length) h += '<div class="head">' + esc(k) + '</div>' + g.map(rowHtml).join('');
-      });
-    } else {
-      h = shown.map(rowHtml).join('');
-    }
-    return h;
+    return shown.sort(newestFirst).map(rowHtml).join('');
   }
   function listHtml() {
     var c = DATA.cars[state.car];
@@ -263,7 +309,7 @@ h1{margin:0;font-weight:700}
       '<label for="q" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">ค้นหารายการ</label>' +
       '<div class="search">' + MAG + '<input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="ค้นหารายการหรือยี่ห้อ" value="' + esc(filter.q) + '"></div>' +
       '<div class="chips" id="chips">' + chipsHtml(c) + '</div>' +
-      '<div class="muted" style="font-size:14px;line-height:1.5">' + (n ? 'เรียงเก่าสุดก่อน · แตะแถวเพื่อดูรายละเอียด' : 'ยังไม่มีรายการของรถคันนี้') + '</div>' +
+      '<div class="muted" style="font-size:14px;line-height:1.5">' + (n ? 'ใหม่สุดอยู่บน · แตะแถวเพื่อดูรายละเอียด' : 'ยังไม่มีรายการของรถคันนี้') + '</div>' +
       '<div class="list" id="rows">' + rowsHtml(c) + '</div>' +
       '<div style="height:72px"></div>' +
       '<button type="button" class="fab" data-act="newentry" aria-label="บันทึกการเปลี่ยนอะไหล่">' + PLUS + '</button>';
@@ -279,15 +325,19 @@ h1{margin:0;font-weight:700}
     var c = DATA.cars[state.car];
     var it = c && c.items[state.item];
     if (!it) return homeHtml();
+    var dd = dueInfo(it);
     var h = '<div class="topbar"><button type="button" class="round" data-act="back" aria-label="กลับไปรายการ">' + BACK + '</button>' +
-      '<span class="muted" style="font-size:15px;line-height:1.5">' + esc(c.name + (c.type ? ' · ' + c.type : '')) + '</span></div>' +
+      '<span class="muted" style="font-size:15px;line-height:1.5">' + esc(c.name + (c.type ? ' · ' + c.type : '')) + '</span>' +
+      '<button type="button" class="tbtn" data-act="editrec" data-h="-1">แก้ไข</button></div>' +
       '<div style="display:flex;flex-direction:column;gap:2px;padding:4px 0 8px"><h1 style="font-size:26px;line-height:1.3;overflow-wrap:anywhere">' + esc(it.name) + '</h1>' +
-      (it.next ? '<p style="margin:0;font-size:16px;line-height:1.5;font-weight:600;color:var(--next);font-variant-numeric:tabular-nums">ครั้งถัดไป ' + fmtNum(it.next) + ' กม.</p>' : '') + '</div>';
+      (it.next ? '<p style="margin:0;font-size:16px;line-height:1.5;font-weight:600;color:var(--next);font-variant-numeric:tabular-nums">ครั้งถัดไป ' + fmtNum(it.next) + ' กม.</p>' : '') +
+      (dd && dd.level !== 'ok' ? '<p class="duep ' + dd.level + '">' + esc(dd.label) + '</p>' : '') + '</div>';
     h += '<div class="list">' +
       kv('วันที่เปลี่ยน', fmtDate(it.date)) +
       kv('เลขไมล์ที่เปลี่ยน', fmtNum(it.mileage), ' กม.') +
       kv('เลขไมล์ถัดไป', fmtNum(it.next), ' กม.') +
       kv('อายุการใช้งาน', age(it.date)) +
+      (dd ? kv('รอบตามเวลา', 'ทุก ' + dd.mo + ' เดือน · ครบ ' + fmtDate(dd.due)) : '') +
       kv('ยี่ห้อ', it.brand) +
       kv('ราคา', it.price ? fmtNum(it.price) : '', ' บาท') +
       kv('ร้าน/อู่', it.shop) +
@@ -298,15 +348,17 @@ h1{margin:0;font-weight:700}
     }
     h += '<div class="head" style="padding:14px 0 0">ประวัติการเปลี่ยน</div><div class="list">';
     if (it.history && it.history.length) {
-      it.history.forEach(function (x) {
-        h += '<div class="hist"><span style="min-width:0;display:flex;flex-direction:column;gap:1px"><span class="d">' + esc(fmtDate(x.date)) + '</span>' +
+      it.history.forEach(function (x, hi) {
+        h += '<button type="button" class="hist" data-act="editrec" data-h="' + hi + '" aria-label="แก้ไขประวัติวันที่ ' + esc(fmtDate(x.date)) + '">' +
+          '<span style="min-width:0;display:flex;flex-direction:column;gap:1px"><span class="d">' + esc(fmtDate(x.date)) + '</span>' +
           '<span class="m">' + fmtNum(x.mileage) + ' กม.' + (x.brand ? ' · ' + esc(x.brand) : '') + '</span></span>' +
-          (x.used ? '<span class="u">ใช้ไป ' + fmtNum(x.used) + ' กม.</span>' : '') + '</div>';
+          '<span class="hr">' + (x.used ? '<span class="u">ใช้ไป ' + fmtNum(x.used) + ' กม.</span>' : '') + CHEV + '</span></button>';
       });
     } else {
       h += '<div class="empty" style="text-align:left;padding:18px 0">ยังไม่มีประวัติก่อนหน้า</div>';
     }
     h += '</div>';
+    if (it.history && it.history.length) h += '<p class="muted" style="margin:0;font-size:13.5px;line-height:1.6">แตะประวัติเพื่อแก้ไขหรือลบ</p>';
     h += '<div class="wfoot"><button type="button" class="btn primary" data-act="changeitem">เปลี่ยนรายการนี้</button></div>';
     return h;
   }
@@ -329,6 +381,9 @@ h1{margin:0;font-weight:700}
     else if (s === 'item') html = itemHtml();
     else if (s === 'wizard') {
       html = wizardHtml();
+      if (html == null) { state = norm({ screen: 'list', car: state.car }); html = listHtml(); }
+    } else if (s === 'edit') {
+      html = editHtml();
       if (html == null) { state = norm({ screen: 'list', car: state.car }); html = listHtml(); }
     } else if (s === 'done') html = doneHtml();
     else html = homeHtml();
@@ -688,6 +743,173 @@ h1{margin:0;font-weight:700}
     setTimeout(function () { if (pendingWizard) { pendingWizard = false; startWizard(carIdx); } }, 700);
   }
 
+  /* ---------- แก้ไข / ลบ รายการ ---------- */
+  var editing = null, pendingEdit = null, toastTimer = null;
+
+  function toast(msg) {
+    var el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2400);
+  }
+  // h = -1 คือครั้งล่าสุด, 0,1,2… คือประวัติ (ใหม่ไปเก่า)
+  function recOf(carIdx, itemIdx, h) {
+    var c = DATA && DATA.cars[carIdx], it = c && c.items[itemIdx];
+    if (!it) return null;
+    return h >= 0 ? (it.history || [])[h] || null : it;
+  }
+  function mkEditing(carIdx, itemIdx, h) {
+    var c = DATA.cars[carIdx], it = c && c.items[itemIdx], rec = recOf(carIdx, itemIdx, h);
+    if (!rec || !rec.row) return null;
+    return {
+      car: carIdx, item: itemIdx, h: h, row: rec.row, name: it.name, photo: h < 0 && !!it.photo,
+      orig: { car: c.name, item: it.name, date: rec.date, mileage: rec.mileage },
+      date: rec.date, mileage: rec.mileage ? String(rec.mileage) : '', brand: rec.brand || '', reason: rec.reason || '',
+      price: rec.price ? String(rec.price) : '', shop: rec.shop || '',
+      rid: makeRid(), ridDel: makeRid(), busy: false
+    };
+  }
+  function startEdit(h) {
+    var rec = recOf(state.car, state.item, h);
+    if (!rec) return;
+    if (!rec.row) {
+      // ข้อมูลรุ่นเก่าในเครื่อง (หรือเพิ่งบันทึก ยังไม่ได้ข้อมูลจากชีต) ยังไม่มีเลขแถว
+      toast('กำลังอัปเดตข้อมูล ลองแตะแก้ไขอีกครั้งสักครู่');
+      refresh();
+      return;
+    }
+    editing = mkEditing(state.car, state.item, h);
+    go({ screen: 'edit', car: state.car, item: state.item, h: h }, 'edit');
+  }
+  function field(id, label, value, extra) {
+    return '<div class="ef"><label class="lbl" for="' + id + '">' + esc(label) + '</label>' +
+      '<input id="' + id + '" class="midin" ' + (extra || 'type="text"') + ' autocomplete="off" enterkeyhint="done" value="' + esc(value) + '"></div>';
+  }
+  function editHtml() {
+    if (!DATA) return null;
+    if (!editing || editing.car !== state.car || editing.item !== state.item || editing.h !== state.h) {
+      editing = mkEditing(state.car, state.item, state.h);
+    }
+    if (!editing) return null;
+    var e = editing, c = DATA.cars[e.car];
+    var which = e.h >= 0 ? 'ประวัติ ' + fmtDate(e.orig.date) : 'ครั้งล่าสุด';
+    return '<div class="topbar"><button type="button" class="round" data-act="back" aria-label="ยกเลิกและย้อนกลับ">' + BACK + '</button>' +
+      '<span class="muted" style="font-size:15px;line-height:1.5">แก้ไขรายการ</span></div>' +
+      '<div style="display:flex;flex-direction:column;gap:2px;padding:4px 0 6px"><h1 style="font-size:26px;line-height:1.3;overflow-wrap:anywhere">' + esc(e.name) + '</h1>' +
+      '<p class="muted" style="margin:0;font-size:15px;line-height:1.5">' + esc(c.name + ' · ' + which) + '</p></div>' +
+      '<div style="display:flex;flex-direction:column;gap:14px">' +
+      field('ed', 'วันที่เปลี่ยน', e.date, 'type="date"') +
+      field('em', 'เลขไมล์ที่เปลี่ยน (กม.)', e.mileage, 'type="text" inputmode="numeric"') +
+      field('eb', 'ยี่ห้อ', e.brand) +
+      field('er', 'หมายเหตุ', e.reason) +
+      field('ep', 'ราคา (บาท)', e.price, 'type="text" inputmode="numeric"') +
+      field('es', 'ร้าน / อู่', e.shop) +
+      '<p class="muted" style="margin:0;font-size:13.5px;line-height:1.6">ถ้ารายการนี้มีรอบ กม. ในชีต Items ระบบจะคำนวณ "ครั้งถัดไป" ใหม่จากเลขไมล์ที่แก้' +
+      (e.photo ? ' · รูปที่แนบไว้ยังอยู่เหมือนเดิม' : '') + '</p>' +
+      '<div id="editerr"></div>' +
+      '<button type="button" id="esave" class="btn primary" style="width:100%;flex:none" data-act="editsave"' + (e.busy ? ' disabled' : '') + '>บันทึกการแก้ไข</button>' +
+      '<button type="button" id="edel" class="btn danger" style="margin-top:14px" data-act="editdel"' + (e.busy ? ' disabled' : '') + '>ลบรายการนี้</button>' +
+      '<p class="muted" style="margin:0;font-size:13.5px;line-height:1.6;text-align:center">ลบแล้วกู้คืนในแอปไม่ได้ (กู้ได้จากประวัติเวอร์ชันของชีต)</p>' +
+      '</div>';
+  }
+  function editErr(msg) {
+    var el = document.getElementById('editerr');
+    if (el) el.innerHTML = msg ? '<div class="warn" role="alert">' + esc(msg) + '</div>' : '';
+  }
+  function editBusy(on, action) {
+    if (!editing) return;
+    editing.busy = on;
+    var s = document.getElementById('esave'), d = document.getElementById('edel');
+    if (s) { s.disabled = on; s.textContent = on && action === 'update' ? 'กำลังบันทึก…' : 'บันทึกการแก้ไข'; }
+    if (d) { d.disabled = on; d.textContent = on && action === 'delete' ? 'กำลังลบ…' : 'ลบรายการนี้'; }
+  }
+  function confirmDelete() {
+    if (!editing || editing.busy) return;
+    var e = editing;
+    var m = document.createElement('div');
+    m.className = 'modal';
+    m.innerHTML = '<div class="sheet" role="dialog" aria-modal="true" aria-label="ยืนยันการลบ"><h2>ลบรายการนี้?</h2>' +
+      '<p style="margin:0;font-size:16px;line-height:1.6;font-weight:600">' + esc(e.name) + '</p>' +
+      '<p class="muted" style="margin:0;font-size:15px;line-height:1.6">' + esc(DATA.cars[e.car].name + ' · ' + fmtDate(e.orig.date) + ' · ' + fmtNum(e.orig.mileage) + ' กม.') + '</p>' +
+      '<div style="display:flex;gap:10px;padding-top:4px"><button type="button" class="btn" data-cf="cancel">ยกเลิก</button>' +
+      '<button type="button" class="btn dangerfill" data-cf="ok">ลบ</button></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener('click', function (ev) {
+      var k = ev.target.closest('[data-cf]');
+      if (!k) return;
+      document.body.removeChild(m);
+      if (k.getAttribute('data-cf') === 'ok') editSubmit('delete');
+    });
+  }
+  function editSubmit(action) {
+    var e = editing;
+    if (!e || e.busy) return;
+    if (!API || /PASTE_YOUR/.test(API)) { editErr('ยังไม่ได้ใส่ลิงก์ Web app ในไฟล์ config.js'); return; }
+    if (action === 'update') {
+      if (!(Number(e.mileage) > 0)) { editErr('กรอกเลขไมล์ที่เปลี่ยน'); return; }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date)) { editErr('เลือกวันที่เปลี่ยน'); return; }
+    }
+    if (!getToken()) { openTokenModal(function () { editSubmit(action); }); return; }
+    editErr('');
+    editBusy(true, action);
+    var body = { token: getToken(), action: action, rid: action === 'delete' ? e.ridDel : e.rid, row: e.row, orig: e.orig };
+    if (action === 'update') {
+      body.date = e.date; body.mileage = Number(e.mileage); body.brand = e.brand.trim(); body.reason = e.reason.trim();
+      body.price = e.price; body.shop = e.shop.trim();
+    }
+    fetch(API, { method: 'POST', body: JSON.stringify(body) }).then(function (r) { return r.text(); }).then(function (t) {
+      var j;
+      try { j = JSON.parse(t); } catch (x) { throw new Error('ตอบกลับไม่ใช่ข้อมูลที่อ่านได้'); }
+      if (!j.ok) { var er = new Error(String(j.message || 'ไม่สำเร็จ').replace(/^ผิดพลาด:\s*/, '')); er.server = true; throw er; }
+      editDone(j, action, e);
+    }).catch(function (err) {
+      editBusy(false, action);
+      if (err && err.server) {
+        if (/token/i.test(err.message)) { setToken(''); openTokenModal(function () { editSubmit(action); }, 'รหัสลับไม่ถูกต้อง ใส่ใหม่อีกครั้ง'); }
+        else editErr(err.message);
+      } else {
+        editErr('ไม่แน่ใจว่าสำเร็จหรือไม่ (สัญญาณหรือการตอบกลับมีปัญหา) กดอีกครั้งได้ ระบบกันทำซ้ำให้');
+      }
+    });
+  }
+  function editDone(j, action, e) {
+    if (j.cars) {
+      DATA = { cars: j.cars, std: j.std || (DATA && DATA.std) || [] };
+      stamp = Date.now();
+      status = 'ok';
+      writeCache();
+    } else {
+      refresh();
+    }
+    var c = DATA.cars[e.car], idx = -1, key = e.name.toLowerCase();
+    (c ? c.items : []).forEach(function (it, i) { if (it.name.toLowerCase() === key) idx = i; });
+    editing = null;
+    var mine = pendingEdit = { car: e.car, item: idx, msg: action === 'delete' ? 'ลบแล้ว' : 'แก้ไขแล้ว' };
+    window.history.back();
+    // กันกรณีเบราว์เซอร์ไม่ส่งเหตุการณ์ย้อนกลับ (เฉพาะการแก้ไขครั้งนี้เท่านั้น)
+    setTimeout(function () { if (pendingEdit === mine) finishEdit(history.state); }, 900);
+  }
+  // เรียกเมื่อย้อนกลับจากหน้าแก้ไขแล้ว: ไปหน้ารายละเอียดของรายการเดิม (ลำดับอาจเปลี่ยน) ถ้ารายการหายไป ไปหน้ารถ
+  function finishEdit(st) {
+    var p = pendingEdit;
+    if (!p) return false;
+    if (p.item >= 0) {
+      pendingEdit = null;
+      var s2 = { screen: 'item', car: p.car, item: p.item };
+      try { history.replaceState(norm(s2), '', location.href); } catch (x) {}
+      view(s2);
+      toast(p.msg);
+      return true;
+    }
+    if (st && st.screen === 'item') { window.history.back(); return true; }
+    pendingEdit = null;
+    view(st && st.screen === 'list' ? st : { screen: 'list', car: p.car });
+    toast(p.msg);
+    return true;
+  }
+
   /* ---------- เครือข่าย ---------- */
   function fetchJson(url) {
     return fetch(url, { cache: 'no-store' }).then(function (r) {
@@ -764,7 +986,8 @@ h1{margin:0;font-weight:700}
   /* ---------- นำทาง: ใช้ประวัติของเบราว์เซอร์ ปัดจากขอบซ้ายเพื่อย้อนกลับได้ ---------- */
   function norm(st) {
     st = st || {};
-    return { screen: st.screen || 'home', car: st.car || 0, item: st.item || 0, step: st.step || '', n: st.n || 0, edit: !!st.edit };
+    return { screen: st.screen || 'home', car: st.car || 0, item: st.item || 0, step: st.step || '', n: st.n || 0, edit: !!st.edit,
+      h: typeof st.h === 'number' ? st.h : -1 };
   }
   function go(st, hash) {
     view(st);
@@ -781,6 +1004,7 @@ h1{margin:0;font-weight:700}
   }
   window.addEventListener('popstate', function (e) {
     var st = norm(e.state && e.state.screen ? e.state : null);
+    if (pendingEdit && finishEdit(st)) return;
     if (pendingDone) { pendingDone = false; state = st; go({ screen: 'done', car: st.car }, 'done'); return; }
     if (pendingWizard) { pendingWizard = false; state = st; startWizard(st.car); return; }
     view(st);
@@ -806,6 +1030,9 @@ h1{margin:0;font-weight:700}
     else if (act === 'refresh') refresh();
     else if (act === 'newentry') startWizard(state.car);
     else if (act === 'changeitem') startWizardForItem(state.car, state.item);
+    else if (act === 'editrec') startEdit(Number(t.getAttribute('data-h')));
+    else if (act === 'editsave') editSubmit('update');
+    else if (act === 'editdel') confirmDelete();
     else if (act === 'pick') { entry.item = t.getAttribute('data-name'); oq = ''; nextStep('item'); }
     else if (act === 'pickother') { var nm = oq.trim(); if (nm) { entry.item = nm; oq = ''; nextStep('item'); } }
     else if (act === 'next') nextStep(state.step);
@@ -829,6 +1056,13 @@ h1{margin:0;font-weight:700}
     if (id === 'q' && state.screen === 'list') {
       filter.q = el.value;
       document.getElementById('rows').innerHTML = rowsHtml(DATA.cars[state.car]);
+    } else if (state.screen === 'edit' && editing) {
+      var map = { ed: 'date', em: 'mileage', eb: 'brand', er: 'reason', ep: 'price', es: 'shop' };
+      if (!map[id]) return;
+      var v = el.value;
+      if (id === 'em' || id === 'ep') { v = v.replace(/[^0-9]/g, ''); if (v !== el.value) el.value = v; }
+      editing[map[id]] = v;
+      editing.rid = makeRid(); // ค่าเปลี่ยน = คำขอใหม่ (กดซ้ำโดยไม่แก้อะไร ใช้รหัสเดิม กันทำซ้ำ)
     } else if (state.screen === 'wizard' && entry) {
       if (id === 'oi') { oq = el.value; var w = document.getElementById('newwrap'); if (w) w.innerHTML = newBtnHtml(); }
       else if (id === 'mi') { var d = el.value.replace(/[^0-9]/g, ''); if (d !== el.value) el.value = d; entry.mileage = d; updateMileageUI(); }
@@ -840,6 +1074,7 @@ h1{margin:0;font-weight:700}
     }
   });
   app.addEventListener('change', function (ev) {
+    if (ev.target && ev.target.id === 'ed' && editing && editing.date !== ev.target.value) { editing.date = ev.target.value; editing.rid = makeRid(); }
     if (ev.target && ev.target.id === 'cd' && entry) entry.customDate = ev.target.value;
   });
   document.getElementById('pf').addEventListener('change', function (ev) {
@@ -864,6 +1099,7 @@ h1{margin:0;font-weight:700}
 
   // ปุ่ม Return บนแป้นพิมพ์ตัวอักษร = ถัดไป (แป้นตัวเลขของ iPhone ไม่มีปุ่ม Return จึงใช้แถบปุ่มที่ยกขึ้นเหนือแป้นแทน)
   app.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && state.screen === 'edit' && ev.target && ev.target.blur) { ev.preventDefault(); ev.target.blur(); return; }
     if (ev.key !== 'Enter' || state.screen !== 'wizard' || !entry) return;
     var id = ev.target && ev.target.id;
     if (id === 'br' && entry.brand.trim()) { ev.preventDefault(); ev.target.blur(); nextStep('brand'); }
