@@ -163,6 +163,17 @@ html,body{background:#EEF3FB}
 .wrap button:not([disabled]):active{opacity:.6}
 .wrap .btn:not([disabled]):active,.wrap .fab:active,.wrap .round:active,.wrap .chip:active,.wrap .pillbtn:active,.wrap .tbtn:active{opacity:.75}
 .wrap button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* เลขไมล์ล่าสุด: ปุ่มเล็กใต้ชื่อรถ + แผ่นเลื่อนขึ้นจากล่าง */
+.odobtn{position:relative;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:18px;background:var(--glass);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border:1px solid rgba(255,255,255,.75);box-shadow:var(--glass-edge),var(--glass-shadow);font-size:14px;font-weight:600;color:var(--next);font-variant-numeric:tabular-nums;white-space:nowrap}
+.odobtn::before{content:'';position:absolute;inset:-4px}
+.odomodal{bottom:auto;height:100%}
+.odosheet{background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);box-shadow:inset 0 1px 0 #fff,0 -10px 30px rgba(40,70,130,.15);animation:odoUp .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes odoUp{from{transform:translateY(100%)}to{transform:none}}
+.odosheet .bigin:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(46,107,208,.18)}
+.odosheet .btn{background:var(--glass);border:1px solid rgba(30,50,90,.12);box-shadow:var(--glass-edge),var(--glass-shadow)}
+.odosheet .btn.primary{background:var(--tint);border:1px solid rgba(255,255,255,.35);color:#fff;box-shadow:var(--tint-edge),0 8px 22px rgba(46,107,208,.28)}
+.odosheet .btn.primary[disabled]{background:#E3E8F0;color:var(--muted);box-shadow:none}
+.odosheet .btn:not([disabled]):active{opacity:.75}
 /* เปิด "ลดความโปร่งใส" ใน iPhone: เปลี่ยนกระจกเป็นพื้นทึบ */
 @media (prefers-reduced-transparency:reduce){
   .pane,.pane.solid,.wfoot{background:#F4F7FC;-webkit-backdrop-filter:none;backdrop-filter:none}
@@ -170,7 +181,7 @@ html,body{background:#EEF3FB}
   .wrap .btn.primary,.chip.on,.pillbtn.on,.fab{background:var(--accent);-webkit-backdrop-filter:none;backdrop-filter:none}
   .wrap .btn.primary[disabled]{background:#E3E8F0}
 }
-@media (prefers-reduced-motion:reduce){.spin{animation:none}.toast{transition:none}.wrap button{transition:none}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}.toast{transition:none}.wrap button{transition:none}.odosheet{animation:none}}
 </style>
 </head>
 <body>
@@ -194,7 +205,7 @@ html,body{background:#EEF3FB}
   var listScroll = 0;
   var MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   var CATS = ['ของเหลว', 'ช่วงล่าง', 'ล้อ/ยาง', 'เกียร์/เครื่อง', 'อื่น ๆ'];
-  var DUE_CHIP = 'ถึงรอบเวลา';
+  var DUE_CHIP = 'ถึงรอบ';
 
   /* ---------- ตัวช่วย ---------- */
   function esc(s) {
@@ -251,6 +262,30 @@ html,body{background:#EEF3FB}
     return { mo: mo, due: isoOf(due), days: days, level: level, label: label };
   }
   function dueTag(d) { return d && d.level !== 'ok' ? '<span class="due ' + d.level + '">' + esc(d.label) + '</span>' : ''; }
+  // รอบตามระยะ: เทียบ "ครั้งถัดไป" กับไมล์ล่าสุดของรถ (over = ถึง/เกินแล้ว, soon = เหลือไม่เกิน 1,000 กม.)
+  function kmInfo(c, it) {
+    var odo = Number(c && c.odo) || 0, nx = Number(it && it.next) || 0;
+    if (!odo || !nx) return null;
+    var left = nx - odo;
+    var level = left <= 0 ? 'over' : left <= 1000 ? 'soon' : 'ok';
+    var label = '';
+    if (level === 'over') label = left === 0 ? 'ถึงระยะแล้ว' : 'ถึงระยะแล้ว เกินมา ' + fmtNum(-left) + ' กม.';
+    else if (level === 'soon') label = 'ใกล้ถึงระยะ อีก ' + fmtNum(left) + ' กม.';
+    return { left: left, level: level, label: label };
+  }
+  function isDue(x) { return !!((x.due && x.due.level !== 'ok') || (x.km && x.km.level !== 'ok')); }
+  function ago(iso) {
+    if (!iso) return '';
+    var p = iso.split('-').map(Number), now = new Date();
+    var days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - new Date(p[0], p[1] - 1, p[2])) / 86400000);
+    if (days <= 0) return 'วันนี้';
+    if (days === 1) return 'เมื่อวาน';
+    return days < 60 ? days + ' วันก่อน' : fmtDate(iso);
+  }
+  function odoLabel(c) {
+    var odo = Number(c.odo) || 0;
+    return odo ? fmtNum(odo) + ' กม.' + (c.odoDate ? ' · ' + ago(c.odoDate) : '') : 'ใส่เลขไมล์ล่าสุด';
+  }
   function isMoto(t) { return /มอเตอร์ไซค์|มอไซค์|มอเตอร์ไซด์|มอไซด์/.test(t || ''); }
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function fmtStamp(ts) {
@@ -265,6 +300,7 @@ html,body{background:#EEF3FB}
   var CHEV = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#56606B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
   var BACK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
   var REFRESH = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.1"/><path d="M20 4v7h-7"/></svg>';
+  var GAUGE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 17a8.5 8.5 0 1 1 15 0"/><path d="M12 13l3.5-4"/><circle cx="12" cy="13" r="1.2"/></svg>';
   var MAG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4B5662" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>';
 
   /* ---------- หน้า 1: เลือกรถ ---------- */
@@ -309,11 +345,11 @@ html,body{background:#EEF3FB}
 
   /* ---------- หน้า 2: รายการ (ค้นหา + ชิปกรอง + จัดกลุ่ม) ---------- */
   function full(c) {
-    return c.items.map(function (it, i) { return { it: it, idx: i, cat: catOf(it.name), due: dueInfo(it) }; });
+    return c.items.map(function (it, i) { return { it: it, idx: i, cat: catOf(it.name), due: dueInfo(it), km: kmInfo(c, it) }; });
   }
   function matches(x) {
     var q = filter.q.trim().toLowerCase();
-    if (filter.cat === DUE_CHIP) { if (!x.due || x.due.level === 'ok') return false; }
+    if (filter.cat === DUE_CHIP) { if (!isDue(x)) return false; }
     else if (filter.cat !== 'ทั้งหมด' && x.cat !== filter.cat) return false;
     if (!q) return true;
     return x.it.name.toLowerCase().indexOf(q) >= 0 || (x.it.brand || '').toLowerCase().indexOf(q) >= 0;
@@ -321,7 +357,7 @@ html,body{background:#EEF3FB}
   function chipsHtml(c) {
     var all = full(c), counts = {};
     all.forEach(function (x) { counts[x.cat] = (counts[x.cat] || 0) + 1; });
-    var nDue = all.filter(function (x) { return x.due && x.due.level !== 'ok'; }).length;
+    var nDue = all.filter(isDue).length;
     var keys = [{ k: 'ทั้งหมด', n: all.length }].concat(nDue ? [{ k: DUE_CHIP, n: nDue }] : [], 
       CATS.filter(function (k) { return counts[k]; }).map(function (k) { return { k: k, n: counts[k] }; }));
     if (!keys.some(function (x) { return x.k === filter.cat; })) filter.cat = 'ทั้งหมด';
@@ -335,7 +371,7 @@ html,body{background:#EEF3FB}
     var it = x.it;
     return '<button type="button" class="item" data-act="item" data-i="' + x.idx + '">' +
       '<span class="t"><span class="nm">' + esc(it.name) + '</span>' +
-      '<span class="sb">' + esc(fmtDate(it.date)) + (it.brand ? ' · ' + esc(it.brand) : '') + '</span>' + dueTag(x.due) + '</span>' +
+      '<span class="sb">' + esc(fmtDate(it.date)) + (it.brand ? ' · ' + esc(it.brand) : '') + '</span>' + dueTag(x.due) + dueTag(x.km) + '</span>' +
       '<span class="r"><span class="rr"><span class="mi">' + fmtNum(it.mileage) + '</span>' +
       (it.next ? '<span class="nx">ถัดไป ' + fmtNum(it.next) + '</span>' : '<span class="ag">' + esc(age(it.date)) + '</span>') +
       '</span>' + CHEV + '</span></button>';
@@ -359,9 +395,12 @@ html,body{background:#EEF3FB}
     var c = DATA.cars[state.car];
     if (!c) return homeHtml();
     var n = c.items.length;
-    return '<div class="topbar"><button type="button" class="round" data-act="back" aria-label="กลับไปเลือกรถ">' + BACK + '</button>' +
-      '<h1 style="font-size:24px;line-height:1.3">' + esc(c.name) + '</h1>' +
-      '<span class="muted" style="font-size:14px;line-height:1.5">' + esc((c.type ? c.type + ' · ' : '') + n + ' รายการ') + '</span></div>' +
+    return '<div class="topbar" style="align-items:flex-start"><button type="button" class="round" data-act="back" aria-label="กลับไปเลือกรถ">' + BACK + '</button>' +
+      '<div style="min-width:0;display:flex;flex-direction:column;gap:6px">' +
+      '<h1 style="font-size:24px;line-height:1.3;padding-top:5px">' + esc(c.name) + '</h1>' +
+      '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">' +
+      '<button type="button" class="odobtn" data-act="odo" aria-label="เลขไมล์ล่าสุด ' + esc(odoLabel(c)) + ' แตะเพื่อแก้">' + GAUGE + esc(odoLabel(c)) + '</button>' +
+      '<span class="muted" style="font-size:14px;line-height:1.5">' + esc((c.type ? c.type + ' · ' : '') + n + ' รายการ') + '</span></div></div></div>' +
       '<label for="q" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">ค้นหารายการ</label>' +
       '<div class="search">' + MAG + '<input id="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="ค้นหารายการหรือยี่ห้อ" value="' + esc(filter.q) + '"></div>' +
       '<div class="chips" id="chips">' + chipsHtml(c) + '</div>' +
@@ -375,6 +414,17 @@ html,body{background:#EEF3FB}
     var has = value !== '' && value != null && value !== 0;
     return '<div class="kvrow"><span class="k">' + esc(label) + '</span><span class="v' + (has ? '' : ' missing') + '">' +
       esc(has ? value + (suffix || '') : 'ไม่ได้บันทึก') + '</span></div>';
+  }
+  // ใช้ไปแล้ว / เหลืออีก — แสดงเมื่อรถมีไมล์ล่าสุดที่ไม่เก่ากว่าตอนเปลี่ยน
+  function kmRows(c, it) {
+    var odo = Number(c.odo) || 0, m = Number(it.mileage) || 0, nx = Number(it.next) || 0;
+    if (!odo || !m || odo < m) return '';
+    var h = kv('ใช้ไปแล้ว', (odo - m ? fmtNum(odo - m) : '0') + ' กม.');
+    if (nx) {
+      var left = nx - odo;
+      h += kv('เหลืออีก', left > 0 ? fmtNum(left) + ' กม.' : left === 0 ? 'ถึงระยะพอดี' : 'เกินมา ' + fmtNum(-left) + ' กม.');
+    }
+    return h;
   }
   function itemHtml() {
     var c = DATA.cars[state.car];
@@ -391,6 +441,7 @@ html,body{background:#EEF3FB}
       kv('วันที่เปลี่ยน', fmtDate(it.date)) +
       kv('เลขไมล์ที่เปลี่ยน', fmtNum(it.mileage), ' กม.') +
       kv('เลขไมล์ถัดไป', fmtNum(it.next), ' กม.') +
+      kmRows(c, it) +
       kv('อายุการใช้งาน', age(it.date)) +
       (dd ? kv('รอบตามเวลา', 'ทุก ' + dd.mo + ' เดือน · ครบ ' + fmtDate(dd.due)) : '') +
       kv('ยี่ห้อ', it.brand) +
@@ -751,6 +802,7 @@ html,body{background:#EEF3FB}
         .sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
     }
     c.items.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    if (e.mileage > (Number(c.odo) || 0)) { c.odo = e.mileage; c.odoDate = e.date; }
     stamp = Date.now();
     writeCache();
   }
@@ -969,6 +1021,109 @@ html,body{background:#EEF3FB}
     return true;
   }
 
+  /* ---------- เลขไมล์ล่าสุด (แผ่นเลื่อนขึ้นจากล่าง) ---------- */
+  var odoEdit = null;
+
+  function openOdo(carIdx) {
+    var c = DATA && DATA.cars[carIdx];
+    if (!c || odoEdit) return;
+    var cur = Number(c.odo) || 0;
+    var m = document.createElement('div');
+    m.className = 'modal odomodal';
+    m.innerHTML = '<div class="sheet odosheet" role="dialog" aria-modal="true" aria-label="เลขไมล์ล่าสุด"><h2>เลขไมล์ล่าสุด</h2>' +
+      '<p class="muted" style="margin:0;font-size:15px;line-height:1.5">' + esc(c.name + (c.type ? ' · ' + c.type : '')) + '</p>' +
+      '<label class="lbl" for="odoin">เลขไมล์ตอนนี้ (กม.)</label>' +
+      '<input id="odoin" class="bigin num" type="text" inputmode="numeric" autocomplete="off" placeholder="' + (cur ? esc(fmtNum(cur)) : '0') + '">' +
+      '<div class="ctx">' + esc(cur ? 'ล่าสุด ' + fmtNum(cur) + ' กม.' + (c.odoDate ? ' (' + fmtDate(c.odoDate) + ')' : '') : 'ยังไม่เคยบันทึกเลขไมล์ของรถคันนี้') + '</div>' +
+      '<div id="odowarn"></div><div id="odoerr"></div>' +
+      '<div style="display:flex;gap:10px;padding-top:4px"><button type="button" class="btn" data-od="cancel">ยกเลิก</button>' +
+      '<button type="button" id="odosave" class="btn primary" data-od="ok" disabled>บันทึก</button></div></div>';
+    document.body.appendChild(m);
+    odoEdit = { car: carIdx, name: c.name, cur: cur, val: '', rid: makeRid(), busy: false, el: m };
+    syncOdo();
+    m.addEventListener('click', function (ev) {
+      if (ev.target === m) { closeOdo(); return; }
+      var k = ev.target.closest('[data-od]');
+      if (!k) return;
+      if (k.getAttribute('data-od') === 'cancel') closeOdo();
+      else odoSubmit();
+    });
+    m.addEventListener('input', function (ev) {
+      if (!odoEdit || ev.target.id !== 'odoin') return;
+      var v = ev.target.value.replace(/[^0-9]/g, '');
+      if (v !== ev.target.value) ev.target.value = v;
+      if (v !== odoEdit.val) { odoEdit.val = v; odoEdit.rid = makeRid(); } // ค่าเปลี่ยน = คำขอใหม่
+      var n = Number(v) || 0, w = document.getElementById('odowarn'), b = document.getElementById('odosave');
+      if (w) w.innerHTML = n && odoEdit.cur && n < odoEdit.cur ? '<div class="warn">เลขนี้น้อยกว่าเดิม (' + fmtNum(odoEdit.cur) + ' กม.) ตรวจเลขอีกครั้ง</div>' : '';
+      if (b && !odoEdit.busy) b.disabled = !(n > 0);
+    });
+    m.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') closeOdo(); });
+    setTimeout(function () { var i = document.getElementById('odoin'); if (i) { try { i.focus(); } catch (e) {} } }, 60);
+  }
+  function closeOdo() {
+    if (!odoEdit) return;
+    if (odoEdit.el.parentNode) odoEdit.el.parentNode.removeChild(odoEdit.el);
+    odoEdit = null;
+  }
+  // iOS ไม่ย่อหน้าเว็บตอนแป้นพิมพ์ขึ้น: ให้ฉากหลังของแผ่นสูงเท่าส่วนที่มองเห็น แผ่นจะอยู่เหนือแป้นพิมพ์
+  function syncOdo() {
+    var vv = window.visualViewport;
+    if (!odoEdit || !vv) return;
+    odoEdit.el.style.top = vv.offsetTop + 'px';
+    odoEdit.el.style.height = vv.height + 'px';
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncOdo);
+    window.visualViewport.addEventListener('scroll', syncOdo);
+  }
+  function odoErr(msg) {
+    var el = document.getElementById('odoerr');
+    if (el) el.innerHTML = msg ? '<div class="warn" role="alert">' + esc(msg) + '</div>' : '';
+  }
+  function odoBusy(on) {
+    if (!odoEdit) return;
+    odoEdit.busy = on;
+    var b = document.getElementById('odosave');
+    if (b) { b.disabled = on || !(Number(odoEdit.val) > 0); b.textContent = on ? 'กำลังบันทึก…' : 'บันทึก'; }
+  }
+  function odoSubmit() {
+    var o = odoEdit;
+    if (!o || o.busy || !(Number(o.val) > 0)) return;
+    if (!API || /PASTE_YOUR/.test(API)) { odoErr('ยังไม่ได้ใส่ลิงก์ Web app ในไฟล์ config.js'); return; }
+    if (!getToken()) { openTokenModal(odoSubmit); return; }
+    odoErr('');
+    odoBusy(true);
+    var body = { token: getToken(), action: 'odo', rid: o.rid, car: o.name, mileage: Number(o.val) };
+    fetch(API, { method: 'POST', body: JSON.stringify(body) }).then(function (r) { return r.text(); }).then(function (t) {
+      var j;
+      try { j = JSON.parse(t); } catch (x) { throw new Error('ตอบกลับไม่ใช่ข้อมูลที่อ่านได้'); }
+      if (!j.ok) { var er = new Error(String(j.message || 'ไม่สำเร็จ').replace(/^ผิดพลาด:\s*/, '')); er.server = true; throw er; }
+      odoDone(j, o);
+    }).catch(function (err) {
+      odoBusy(false);
+      if (err && err.server) {
+        if (/token/i.test(err.message)) { setToken(''); openTokenModal(odoSubmit, 'รหัสลับไม่ถูกต้อง ใส่ใหม่อีกครั้ง'); }
+        else odoErr(err.message);
+      } else {
+        odoErr('ไม่แน่ใจว่าบันทึกสำเร็จหรือไม่ (สัญญาณหรือการตอบกลับมีปัญหา) กดบันทึกอีกครั้งได้ ระบบกันบันทึกซ้ำให้');
+      }
+    });
+  }
+  function odoDone(j, o) {
+    if (j.cars) {
+      DATA = { cars: j.cars, std: j.std || (DATA && DATA.std) || [] };
+      status = 'ok';
+    } else {
+      var c = DATA.cars[o.car];
+      if (c) { c.odo = Number(o.val); c.odoDate = isoOf(new Date()); }
+    }
+    stamp = Date.now();
+    writeCache();
+    if (odoEdit === o) closeOdo();
+    if (state.screen === 'list') rerender();
+    toast('บันทึกเลขไมล์แล้ว');
+  }
+
   /* ---------- เครือข่าย ---------- */
   function fetchJson(url) {
     return fetch(url, { cache: 'no-store' }).then(function (r) {
@@ -1092,6 +1247,7 @@ html,body{background:#EEF3FB}
     else if (act === 'editrec') startEdit(Number(t.getAttribute('data-h')));
     else if (act === 'editsave') editSubmit('update');
     else if (act === 'editdel') confirmDelete();
+    else if (act === 'odo') openOdo(state.car);
     else if (act === 'pick') { entry.item = t.getAttribute('data-name'); oq = ''; nextStep('item'); }
     else if (act === 'pickother') { var nm = oq.trim(); if (nm) { entry.item = nm; oq = ''; nextStep('item'); } }
     else if (act === 'next') nextStep(state.step);
