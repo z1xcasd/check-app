@@ -196,6 +196,9 @@ html,body{background:#EEF3FB}
 .zoomrow input{flex:1;min-width:0;height:44px;accent-color:var(--accent)}
 .zbtn{flex:none;width:44px;height:44px;border-radius:22px;border:1px solid rgba(30,50,90,.12);background:var(--glass);box-shadow:var(--glass-edge),var(--glass-shadow);color:var(--next);font-size:22px;font-weight:600;line-height:1}
 .zbtn:active{opacity:.75}
+.logoacts{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 14px}
+.pastebtn{min-height:44px;padding:0 26px;border-radius:22px;border:1px solid rgba(30,50,90,.12);background:var(--glass);box-shadow:var(--glass-edge),var(--glass-shadow);color:var(--next);font-size:15px;font-weight:600}
+.pastebtn:active{opacity:.75}
 .linkbtn{align-self:center;min-height:44px;padding:0 12px;border:none;background:none;color:var(--next);font-size:15px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
 /* เปิด "ลดความโปร่งใส" ใน iPhone: เปลี่ยนกระจกเป็นพื้นทึบ */
 @media (prefers-reduced-transparency:reduce){
@@ -1166,12 +1169,13 @@ html,body{background:#EEF3FB}
       '<p class="muted" style="margin:0;font-size:15px;line-height:1.5">' + esc(c.name + (c.type ? ' · ' + c.type : '')) + '</p>' +
       // contenteditable เพื่อให้แตะค้างแล้วมีเมนู "วาง" (inputmode none = ไม่เปิดแป้นพิมพ์) แต่ห้ามพิมพ์อะไรลงไป
       '<div id="logobox" class="logobox" contenteditable="true" inputmode="none" spellcheck="false" autocorrect="off" autocapitalize="off" role="button" tabindex="0" ' +
-      'aria-label="ใส่รูปโลโก้ แตะเพื่อเลือกหรือถ่ายรูป แตะค้างเพื่อวางรูปหรือลิงก์รูป หรือลากรูปมาวาง"></div>' +
+      'aria-label="ใส่รูปโลโก้ แตะเพื่อเลือกหรือถ่ายรูป หรือลากรูปมาวาง"></div>' +
       '<input type="file" id="logofile" accept="image/*" hidden>' +
       '<div id="logozoomrow" class="zoomrow" hidden><button type="button" class="zbtn" data-lg="zout" aria-label="ซูมออก">−</button>' +
       '<input id="logozoom" type="range" min="1" max="' + LOGO_ZMAX + '" step="0.01" value="1" aria-label="ซูมรูปโลโก้">' +
       '<button type="button" class="zbtn" data-lg="zin" aria-label="ซูมเข้า">+</button></div>' +
-      '<button type="button" class="linkbtn" data-lg="default">ใช้ไอคอนรถแบบเดิม</button>' +
+      '<div class="logoacts"><button type="button" class="pastebtn" data-lg="paste" aria-label="วางรูปหรือลิงก์รูปที่คัดลอกไว้">วาง</button>' +
+      '<button type="button" class="linkbtn" data-lg="default">ใช้ไอคอนรถแบบเดิม</button></div>' +
       '<div id="logoerr"></div>' +
       '<div style="display:flex;gap:10px"><button type="button" class="btn" data-lg="cancel">ยกเลิก</button>' +
       '<button type="button" id="logosave" class="btn primary" data-lg="ok" disabled>บันทึก</button></div></div>';
@@ -1190,6 +1194,7 @@ html,body{background:#EEF3FB}
       var a = k.getAttribute('data-lg');
       if (a === 'cancel') closeLogo();
       else if (a === 'default') logoSetVal('');
+      else if (a === 'paste') logoFromClipboard();
       else if (a === 'zin' || a === 'zout') logoZoomTo(logoEdit.z + (a === 'zin' ? 0.25 : -0.25), true);
       else logoSubmit();
     });
@@ -1246,7 +1251,7 @@ html,body{background:#EEF3FB}
     var hint = o.wait ? esc(o.wait)
       : o.msg ? esc(o.msg)
       : o.img ? 'ลากเพื่อเลื่อน · ถ่างนิ้วเพื่อซูม<br>แตะตรงนี้เพื่อเปลี่ยนรูป'
-      : 'แตะเพื่อเลือกหรือถ่ายรูป<br>แตะค้างเพื่อวางรูปหรือลิงก์รูป · ลากรูปมาวางได้';
+      : 'แตะเพื่อเลือกหรือถ่ายรูป<br>หรือกดปุ่มวางด้านล่าง';
     var dpr = Math.min(3, window.devicePixelRatio || 1);
     box.innerHTML = (o.img
       ? '<canvas class="logoprev logocv haslogo" contenteditable="false" width="' + Math.round(LOGO_PREV * dpr) + '" height="' + Math.round(LOGO_PREV * dpr) + '" aria-label="ตัวอย่างโลโก้ ลากเพื่อเลื่อน ถ่างนิ้วเพื่อซูม"></canvas>'
@@ -1406,12 +1411,43 @@ html,body{background:#EEF3FB}
       if (items[i].kind === 'file' && /^image\//.test(items[i].type)) { f = items[i].getAsFile(); if (f) { logoFromSource(f); return; } }
     }
     if (dt.files && dt.files[0] && /^image\//.test(dt.files[0].type)) { logoFromSource(dt.files[0]); return; }
-    var uri = String(dt.getData('text/uri-list') || '').split(/\r?\n/).filter(function (x) { return x && x.charAt(0) !== '#'; })[0] || '';
-    var html = String(dt.getData('text/html') || ''), m = /<img[^>]+src=["']([^"']+)["']/i.exec(html);
-    var text = (uri || (m && m[1].replace(/&amp;/g, '&')) || String(dt.getData('text/plain') || '')).trim();
+    logoFromText(dt.getData('text/uri-list'), dt.getData('text/html'), dt.getData('text/plain'));
+  }
+  function logoFromText(uri, html, plain) {
+    uri = String(uri || '').split(/\r?\n/).filter(function (x) { return x && x.charAt(0) !== '#'; })[0] || '';
+    var m = /<img[^>]+src=["']([^"']+)["']/i.exec(String(html || ''));
+    var text = (uri || (m && m[1].replace(/&amp;/g, '&')) || String(plain || '')).trim();
     if (/^data:image\//i.test(text)) logoFromSource(text);
     else if (/^https?:\/\/\S+$/i.test(text)) logoFromUrl(text);
-    else logoNote('', 'ไม่พบรูปหรือลิงก์รูปในสิ่งที่วาง');
+    else logoNote('', 'ไม่พบรูปหรือลิงก์รูปที่คัดลอกไว้');
+  }
+  // ปุ่ม "วาง": อ่านคลิปบอร์ดเอง (iPhone จะขึ้นปุ่ม "วาง" ให้แตะยืนยันอีกที) — ต้องเรียกตรงจากการแตะ
+  function logoFromClipboard() {
+    var o = logoEdit, cb = navigator.clipboard;
+    if (!o || o.busy || o.wait) return;
+    var nope = 'เครื่องนี้วางจากปุ่มไม่ได้ แตะกล่องด้านบนเพื่อเลือกรูปแทน';
+    if (!cb || (!cb.read && !cb.readText)) { logoNote('', nope); return; }
+    function fail(err) {
+      if (logoEdit !== o) return;
+      logoNote('', err && err.name === 'NotAllowedError' ? 'วางไม่สำเร็จ กดปุ่ม "วาง" อีกครั้ง แล้วแตะ "วาง" ที่เด้งขึ้นมา' : nope);
+    }
+    function asText(item, type) {
+      return item.types.indexOf(type) < 0 ? Promise.resolve('') : item.getType(type).then(function (b) { return b.text(); }).catch(function () { return ''; });
+    }
+    if (!cb.read) { cb.readText().then(function (t) { if (logoEdit === o) logoFromText('', '', t); }, fail); return; }
+    cb.read().then(function (items) {
+      var i, j, t;
+      for (i = 0; i < items.length; i++) {
+        for (j = 0; j < items[i].types.length; j++) {
+          t = items[i].types[j];
+          if (/^image\//.test(t)) return items[i].getType(t).then(function (b) { if (logoEdit === o) logoFromSource(b); });
+        }
+      }
+      if (!items.length) { logoFromText('', '', ''); return; }
+      return Promise.all([asText(items[0], 'text/uri-list'), asText(items[0], 'text/html'), asText(items[0], 'text/plain')]).then(function (v) {
+        if (logoEdit === o) logoFromText(v[0], v[1], v[2]);
+      });
+    }).catch(fail);
   }
   // ลิงก์รูป: ให้ Apps Script ดึงรูปมาให้ (ดึงตรงจากแอปมักติดสิทธิ์ข้ามโดเมน) แล้วค่อยย่อในแอป
   function logoFromUrl(url) {

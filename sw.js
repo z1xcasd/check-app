@@ -1,6 +1,6 @@
-// เก็บไฟล์หน้าแอปไว้ในเครื่อง เปิดได้ทันทีแม้สัญญาณช้า (ข้อมูลรถเก็บแยกในแอป)
-// ถ้าแก้ไฟล์แอป ให้เปลี่ยนเลข v1 เป็น v2, v3 ... เพื่อบังคับให้เครื่องโหลดไฟล์ใหม่
-var CACHE = 'cc-v14';
+// à¹€à¸à¹‡à¸šà¹„à¸Ÿà¸¥à¹Œà¸«à¸™à¹‰à¸²à¹à¸­à¸›à¹„à¸§à¹‰à¹ƒà¸™à¹€à¸„à¸£à¸·à¹ˆà¸­à¸‡ à¹€à¸›à¸´à¸”à¹„à¸”à¹‰à¸—à¸±à¸™à¸—à¸µà¹à¸¡à¹‰à¸ªà¸±à¸à¸à¸²à¸“à¸Šà¹‰à¸² (à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸£à¸–à¹€à¸à¹‡à¸šà¹à¸¢à¸à¹ƒà¸™à¹à¸­à¸›)
+// à¸–à¹‰à¸²à¹à¸à¹‰à¹„à¸Ÿà¸¥à¹Œà¹à¸­à¸› à¹ƒà¸«à¹‰à¹€à¸›à¸¥à¸µà¹ˆà¸¢à¸™à¹€à¸¥à¸‚ v1 à¹€à¸›à¹‡à¸™ v2, v3 ... à¹€à¸žà¸·à¹ˆà¸­à¸šà¸±à¸‡à¸„à¸±à¸šà¹ƒà¸«à¹‰à¹€à¸„à¸£à¸·à¹ˆà¸­à¸‡à¹‚à¸«à¸¥à¸”à¹„à¸Ÿà¸¥à¹Œà¹ƒà¸«à¸¡à¹ˆ
+var CACHE = 'cc-v15';
 var FILES = ['./', './index.html', './config.js', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
@@ -18,7 +18,7 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   var url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== self.location.origin) return; // ข้อมูลรถ/รูปไปเครือข่ายตรง ๆ
+  if (req.method !== 'GET' || url.origin !== self.location.origin) return; // à¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸£à¸–/à¸£à¸¹à¸›à¹„à¸›à¹€à¸„à¸£à¸·à¸­à¸‚à¹ˆà¸²à¸¢à¸•à¸£à¸‡ à¹†
   e.respondWith(
     caches.match(req).then(function (hit) {
       var net = fetch(req).then(function (r) {
