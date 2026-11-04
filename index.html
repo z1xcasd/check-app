@@ -189,6 +189,13 @@ html,body{background:#EEF3FB}
 .logoprev.haslogo{background:#fff}
 .logohint{font-size:14px;line-height:1.5;color:var(--muted)}
 .logohint.err{color:#9B2C1F;font-weight:600}
+.logocv{display:block;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;cursor:grab}
+.logocv:active{cursor:grabbing}
+.zoomrow{display:flex;align-items:center;gap:10px;padding:0 4px}
+.zoomrow[hidden]{display:none}
+.zoomrow input{flex:1;min-width:0;height:44px;accent-color:var(--accent)}
+.zbtn{flex:none;width:44px;height:44px;border-radius:22px;border:1px solid rgba(30,50,90,.12);background:var(--glass);box-shadow:var(--glass-edge),var(--glass-shadow);color:var(--next);font-size:22px;font-weight:600;line-height:1}
+.zbtn:active{opacity:.75}
 .linkbtn{align-self:center;min-height:44px;padding:0 12px;border:none;background:none;color:var(--next);font-size:15px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
 /* เปิด "ลดความโปร่งใส" ใน iPhone: เปลี่ยนกระจกเป็นพื้นทึบ */
 @media (prefers-reduced-transparency:reduce){
@@ -1148,6 +1155,7 @@ html,body{background:#EEF3FB}
   /* ---------- โลโก้รถ (แผ่นเลื่อนขึ้นจากล่าง กล่องใส่รูปกล่องเดียว) ---------- */
   var logoEdit = null;
   var LOGO_SIZE = 128, LOGO_LIMIT = 13700; // ~10 KB หลังแปลงเป็น base64
+  var LOGO_PREV = 112, LOGO_ZMAX = 4, LOGO_SRC_MAX = 1024; // วงตัวอย่าง (px), ซูมสูงสุด, ขนาดรูปต้นฉบับที่เก็บไว้ปรับ
 
   function openLogo(carIdx) {
     var c = DATA && DATA.cars[carIdx];
@@ -1160,25 +1168,34 @@ html,body{background:#EEF3FB}
       '<div id="logobox" class="logobox" contenteditable="true" inputmode="none" spellcheck="false" autocorrect="off" autocapitalize="off" role="button" tabindex="0" ' +
       'aria-label="ใส่รูปโลโก้ แตะเพื่อเลือกหรือถ่ายรูป แตะค้างเพื่อวางรูปหรือลิงก์รูป หรือลากรูปมาวาง"></div>' +
       '<input type="file" id="logofile" accept="image/*" hidden>' +
+      '<div id="logozoomrow" class="zoomrow" hidden><button type="button" class="zbtn" data-lg="zout" aria-label="ซูมออก">−</button>' +
+      '<input id="logozoom" type="range" min="1" max="' + LOGO_ZMAX + '" step="0.01" value="1" aria-label="ซูมรูปโลโก้">' +
+      '<button type="button" class="zbtn" data-lg="zin" aria-label="ซูมเข้า">+</button></div>' +
       '<button type="button" class="linkbtn" data-lg="default">ใช้ไอคอนรถแบบเดิม</button>' +
       '<div id="logoerr"></div>' +
       '<div style="display:flex;gap:10px"><button type="button" class="btn" data-lg="cancel">ยกเลิก</button>' +
       '<button type="button" id="logosave" class="btn primary" data-lg="ok" disabled>บันทึก</button></div></div>';
     document.body.appendChild(m);
-    logoEdit = { car: carIdx, name: c.name, moto: isMoto(c.type), orig: c.logo || '', val: c.logo || '', rid: makeRid(), busy: false, wait: '', msg: '', el: m };
+    logoEdit = { car: carIdx, name: c.name, moto: isMoto(c.type), orig: c.logo || '', val: c.logo || '', rid: makeRid(), busy: false, wait: '', msg: '', el: m,
+      img: null, fit: 1, z: 1, px: 0, py: 0 }; // img = รูปต้นฉบับที่กำลังปรับ (โลโก้เดิมที่บันทึกแล้วปรับไม่ได้)
     paintLogo();
     syncLogo();
     var box = document.getElementById('logobox');
     m.addEventListener('click', function (ev) {
       if (ev.target === m) { closeLogo(); return; }
+      if (ev.target.closest('.logocv')) return; // วงตัวอย่างใช้ลาก/ซูม ไม่เปิดเมนูเลือกรูป
       if (ev.target.closest('#logobox')) { if (!logoEdit.busy && !logoEdit.wait) document.getElementById('logofile').click(); return; }
       var k = ev.target.closest('[data-lg]');
       if (!k) return;
       var a = k.getAttribute('data-lg');
       if (a === 'cancel') closeLogo();
       else if (a === 'default') logoSetVal('');
+      else if (a === 'zin' || a === 'zout') logoZoomTo(logoEdit.z + (a === 'zin' ? 0.25 : -0.25), true);
       else logoSubmit();
     });
+    var zr = document.getElementById('logozoom');
+    zr.addEventListener('input', function () { logoZoomTo(Number(zr.value), false); });
+    zr.addEventListener('change', function () { logoCommit(); });
     m.addEventListener('keydown', function (ev) {
       if (ev.key === 'Escape') { closeLogo(); return; }
       if (ev.target === box) {
@@ -1228,48 +1245,141 @@ html,body{background:#EEF3FB}
     if (!o || !box) return;
     var hint = o.wait ? esc(o.wait)
       : o.msg ? esc(o.msg)
+      : o.img ? 'ลากเพื่อเลื่อน · ถ่างนิ้วเพื่อซูม<br>แตะตรงนี้เพื่อเปลี่ยนรูป'
       : 'แตะเพื่อเลือกหรือถ่ายรูป<br>แตะค้างเพื่อวางรูปหรือลิงก์รูป · ลากรูปมาวางได้';
-    box.innerHTML = '<span class="logoprev' + (o.val ? ' haslogo' : '') + '" contenteditable="false">' +
-      (o.val ? '<img alt="ตัวอย่างโลโก้" src="' + esc(o.val) + '">' : (o.moto ? SVG_MOTO : SVG_CAR)) + '</span>' +
+    var dpr = Math.min(3, window.devicePixelRatio || 1);
+    box.innerHTML = (o.img
+      ? '<canvas class="logoprev logocv haslogo" contenteditable="false" width="' + Math.round(LOGO_PREV * dpr) + '" height="' + Math.round(LOGO_PREV * dpr) + '" aria-label="ตัวอย่างโลโก้ ลากเพื่อเลื่อน ถ่างนิ้วเพื่อซูม"></canvas>'
+      : '<span class="logoprev' + (o.val ? ' haslogo' : '') + '" contenteditable="false">' +
+        (o.val ? '<img alt="ตัวอย่างโลโก้" src="' + esc(o.val) + '">' : (o.moto ? SVG_MOTO : SVG_CAR)) + '</span>') +
       '<span class="logohint' + (o.msg && !o.wait ? ' err' : '') + '" contenteditable="false">' + hint + '</span>';
+    if (o.img) { drawLogoPrev(); bindLogoGestures(box.querySelector('.logocv')); }
+    var zr = document.getElementById('logozoomrow');
+    if (zr) { zr.hidden = !o.img; var r = document.getElementById('logozoom'); if (r) r.value = o.z; }
     var d = o.el.querySelector('[data-lg="default"]');
     if (d) d.hidden = !o.val;
-    var b = document.getElementById('logosave');
-    if (b) { b.disabled = o.busy || !!o.wait || o.val === o.orig; b.textContent = o.busy ? 'กำลังบันทึก…' : 'บันทึก'; }
+    logoSaveBtn();
+  }
+  function logoSaveBtn() {
+    var o = logoEdit, b = document.getElementById('logosave');
+    if (o && b) { b.disabled = o.busy || !!o.wait || o.val === o.orig; b.textContent = o.busy ? 'กำลังบันทึก…' : 'บันทึก'; }
   }
   function logoSetVal(v) {
     var o = logoEdit;
     if (!o) return;
     if (v !== o.val) { o.val = v; o.rid = makeRid(); } // ค่าเปลี่ยน = คำขอใหม่
+    if (!v) o.img = null;
     o.wait = ''; o.msg = '';
     logoErr('');
     paintLogo();
+  }
+  // วาดรูปตามตำแหน่ง/ซูมปัจจุบันลงวงกลมขนาด D (พื้นที่ว่างเป็นสีขาว) — ใช้ทั้งวงตัวอย่างและรูปที่บันทึก
+  function drawLogoCrop(g, D) {
+    var o = logoEdit, k = D / LOGO_PREV, s = o.fit * o.z * k, w = o.img.width * s, h = o.img.height * s;
+    g.fillStyle = '#fff';
+    g.fillRect(0, 0, D, D);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(o.img, D / 2 - w / 2 + o.px * k, D / 2 - h / 2 + o.py * k, w, h);
+  }
+  function drawLogoPrev() {
+    var cv = document.querySelector('#logobox .logocv');
+    if (cv && logoEdit && logoEdit.img) drawLogoCrop(cv.getContext('2d'), cv.width);
+  }
+  // ซูมได้ตั้งแต่เห็นทั้งรูป (1) ถึง LOGO_ZMAX และเลื่อนได้ไม่เกินขอบรูป (รูปไม่หลุดออกจากวง)
+  function clampLogo() {
+    var o = logoEdit;
+    o.z = Math.min(LOGO_ZMAX, Math.max(1, o.z));
+    var hw = o.img.width * o.fit * o.z / 2, hh = o.img.height * o.fit * o.z / 2;
+    o.px = Math.max(-hw, Math.min(hw, o.px));
+    o.py = Math.max(-hh, Math.min(hh, o.py));
+  }
+  function logoZoomTo(z, commit) {
+    var o = logoEdit;
+    if (!o || !o.img) return;
+    var old = o.z;
+    o.z = z;
+    clampLogo();
+    o.px *= o.z / old; o.py *= o.z / old; // ซูมรอบกลางวง
+    clampLogo();
+    var r = document.getElementById('logozoom');
+    if (r && Number(r.value) !== o.z) r.value = o.z;
+    drawLogoPrev();
+    if (commit) logoCommit();
+  }
+  // แปลงตำแหน่ง/ซูมปัจจุบันเป็นรูป 128×128 JPEG ลดคุณภาพทีละขั้นจนไม่เกิน ~10 KB
+  function logoCommit() {
+    var o = logoEdit;
+    if (!o || !o.img) return;
+    var out = null;
+    try {
+      var cv = document.createElement('canvas');
+      cv.width = cv.height = LOGO_SIZE;
+      drawLogoCrop(cv.getContext('2d'), LOGO_SIZE);
+      for (var q = 0.85; q >= 0.3; q -= 0.1) {
+        out = cv.toDataURL('image/jpeg', q);
+        if (out.length <= LOGO_LIMIT) break;
+      }
+    } catch (e) { out = null; }
+    if (!out || out.length > LOGO_LIMIT || !/^data:image\/jpeg;base64,/.test(out)) { logoNote('', 'อ่านรูปนี้ไม่ได้ ลองรูปอื่น'); return; }
+    if (out !== o.val) { o.val = out; o.rid = makeRid(); } // ปรับตำแหน่ง/ซูม = คำขอใหม่
+    var d = o.el.querySelector('[data-lg="default"]');
+    if (d) d.hidden = false;
+    logoSaveBtn();
+  }
+  // ลากนิ้วเดียว = เลื่อน, สองนิ้ว = ซูม, ล้อเมาส์ = ซูม
+  function bindLogoGestures(cv) {
+    var pts = {}, pinch = null, wheelT = null;
+    function pos(ev) { var r = cv.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
+    function dist() { var k = Object.keys(pts); return k.length < 2 ? 0 : Math.hypot(pts[k[0]].x - pts[k[1]].x, pts[k[0]].y - pts[k[1]].y); }
+    cv.addEventListener('pointerdown', function (ev) {
+      if (!logoEdit || !logoEdit.img) return;
+      ev.preventDefault();
+      try { cv.setPointerCapture(ev.pointerId); } catch (x) {}
+      pts[ev.pointerId] = pos(ev);
+      pinch = Object.keys(pts).length >= 2 ? { d: dist(), z: logoEdit.z } : null;
+    });
+    cv.addEventListener('pointermove', function (ev) {
+      var o = logoEdit;
+      if (!o || !o.img || !pts[ev.pointerId]) return;
+      var p = pos(ev), prev = pts[ev.pointerId];
+      pts[ev.pointerId] = p;
+      if (pinch && pinch.d) { logoZoomTo(pinch.z * dist() / pinch.d, false); return; }
+      if (Object.keys(pts).length === 1) { o.px += p.x - prev.x; o.py += p.y - prev.y; clampLogo(); drawLogoPrev(); }
+    });
+    function end(ev) {
+      if (!pts[ev.pointerId]) return;
+      delete pts[ev.pointerId];
+      pinch = Object.keys(pts).length >= 2 ? { d: dist(), z: logoEdit ? logoEdit.z : 1 } : null;
+      if (!Object.keys(pts).length) logoCommit();
+    }
+    cv.addEventListener('pointerup', end);
+    cv.addEventListener('pointercancel', end);
+    cv.addEventListener('wheel', function (ev) {
+      if (!logoEdit || !logoEdit.img) return;
+      ev.preventDefault();
+      logoZoomTo(logoEdit.z * Math.exp(-ev.deltaY * 0.002), false);
+      clearTimeout(wheelT);
+      wheelT = setTimeout(logoCommit, 200);
+    }, { passive: false });
   }
   function logoNote(wait, msg) {
     if (!logoEdit) return;
     logoEdit.wait = wait || ''; logoEdit.msg = msg || '';
     paintLogo();
   }
-  // ตัดกลางให้เป็นจัตุรัส ย่อ 128×128 JPEG ลดคุณภาพทีละขั้นจนไม่เกิน ~10 KB
-  function shrinkLogo(src, cb) {
+  // โหลดรูป แล้วเก็บสำเนาย่อ (ด้านยาวไม่เกิน 1024 px) ไว้ปรับตำแหน่ง/ซูม
+  function loadLogoSource(src, cb) {
     var isBlob = typeof src !== 'string', url = isBlob ? URL.createObjectURL(src) : src, img = new Image();
     img.onload = function () {
       if (isBlob) URL.revokeObjectURL(url);
-      var w = img.naturalWidth, h = img.naturalHeight, s = Math.min(w, h), out = null;
-      if (!s) { cb(null); return; }
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if (!w || !h) { cb(null); return; }
       try {
-        var cv = document.createElement('canvas');
-        cv.width = cv.height = LOGO_SIZE;
-        var g = cv.getContext('2d');
-        g.fillStyle = '#fff';
-        g.fillRect(0, 0, LOGO_SIZE, LOGO_SIZE);
-        g.drawImage(img, (w - s) / 2, (h - s) / 2, s, s, 0, 0, LOGO_SIZE, LOGO_SIZE);
-        for (var q = 0.85; q >= 0.3; q -= 0.1) {
-          out = cv.toDataURL('image/jpeg', q);
-          if (out.length <= LOGO_LIMIT) break;
-        }
-      } catch (e) { out = null; }
-      cb(out && out.length <= LOGO_LIMIT && /^data:image\/jpeg;base64,/.test(out) ? out : null);
+        var sc = Math.min(1, LOGO_SRC_MAX / Math.max(w, h)), cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.round(w * sc)); cv.height = Math.max(1, Math.round(h * sc));
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        cb(cv);
+      } catch (e) { cb(null); }
     };
     img.onerror = function () { if (isBlob) URL.revokeObjectURL(url); cb(null); };
     img.src = url;
@@ -1278,10 +1388,15 @@ html,body{background:#EEF3FB}
     var o = logoEdit;
     if (!o) return;
     logoNote('กำลังย่อรูป…');
-    shrinkLogo(src, function (out) {
+    loadLogoSource(src, function (cv) {
       if (logoEdit !== o) return;
-      if (!out) { logoNote('', 'อ่านรูปนี้ไม่ได้ ลองรูปอื่น'); return; }
-      logoSetVal(out);
+      if (!cv) { logoNote('', 'อ่านรูปนี้ไม่ได้ ลองรูปอื่น'); return; }
+      // เริ่มต้นย่อให้เห็นทั้งรูปในวง แล้วค่อยลาก/ซูมปรับเอง
+      o.img = cv; o.fit = Math.min(LOGO_PREV / cv.width, LOGO_PREV / cv.height); o.z = 1; o.px = 0; o.py = 0;
+      o.wait = ''; o.msg = '';
+      logoErr('');
+      paintLogo();
+      logoCommit();
     });
   }
   // อ่านสิ่งที่วางหรือลากมา: ไฟล์รูปก่อน แล้วค่อยลิงก์รูป
